@@ -49,11 +49,10 @@ func createserver(typeS string, doneS chan string) {
 // - Gather and collect receivers
 // 2. Receiver
 // - Listen in for sender requests
-func InitServer(typeS string) {
+func InitServer(typeS string, workcloseCH chan string) {
 
 	// Create the server
-	createserverch := make(chan string)
-	go createserver(createserverch)
+	go createserver(typeS, workcloseCH)
 
 	// // Setting up signal for interrupt checking in a goroutine
 	// exitChan := make(chan struct{})

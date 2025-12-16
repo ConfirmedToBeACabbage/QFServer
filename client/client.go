@@ -1,33 +1,37 @@
 package Client
 
 import (
+	"bufio"
 	"fmt"
-	"sync"
+	"os"
 )
 
-// Workers for listening to broadcasts
-type broadcastlistenerW struct {
-	source chan interface{}
-	quit   chan interface{}
-}
+func ClientLoop() {
 
-func (blw *broadcastlistenerW) Start() {
-	blw.source = make(chan interface{}, 10)
+	// Reader
+	reader := bufio.NewReader(os.Stdin)
+
+	// Quit channel
+	exit := make(chan bool)
 
 	go func() {
+
 		for {
-			select {
-			case msg := <-blw.source: // What to do with the message
-				fmt.Printf(`%s`, msg)
-			case <-blw.quit: // What to do when quitting
-				return
+			fmt.Println(`QFServer CLI! Type in "Help" to get started.`)
+			fmt.Print("> ")
+			input, err := reader.ReadString('\n')
+
+			if err != nil {
+				fmt.Println(input)
+			} else {
+				exit <- true
 			}
 		}
-	}()
-}
 
-// Thread safe Worker Group
-type tslice struct {
-	sync.Mutex
-	workers []*broadcastlistenerW
+	}()
+
+	select {
+	case <-exit:
+		return
+	}
 }
