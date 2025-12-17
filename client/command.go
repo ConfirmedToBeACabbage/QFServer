@@ -1,36 +1,80 @@
-package Client
+package client
 
 import "strings"
 
-type commandcontrol interface {
-	help()
-	inbox()
-	draft()
-	util()
-	redirect()
+type CMethodSig interface {
+	help(chan bool)
+	inbox(chan bool)
+	draft(chan bool)
+	util(chan bool)
+	redirect(chan bool)
 }
 
-type command struct {
-	command string
-	args    []string
-	message string
+type Command struct {
+	command   string
+	args      []string
+	message   string
+	giveerror bool
 }
 
 // Command methods signed by commandcontrol
-func (c command) help()  {}
-func (c command) inbox() {}
-func (c command) draft() {}
-func (c command) util()  {}
+func (c *Command) help(exit chan bool) {
+	for {
+
+		if <-exit {
+			return
+		}
+	}
+}
+
+func (c *Command) inbox(exit chan bool) {
+	for {
+
+		if <-exit {
+			return
+		}
+	}
+}
+
+func (c *Command) draft(exit chan bool) {
+	for {
+
+		if <-exit {
+			return
+		}
+	}
+}
+
+func (c *Command) util(exit chan bool) {
+	for {
+
+		if <-exit {
+			return
+		}
+	}
+}
 
 // Main redirect method
-func (c command) redirect() {
+func (c *Command) redirect(exit chan bool) func(exit chan bool) {
 
+	funcmapping := map[string]func(chan bool){
+		"help":  c.help,
+		"inbox": c.inbox,
+		"draft": c.draft,
+		"util":  c.util,
+	}
+
+	if method, exists := funcmapping[c.command]; exists {
+		return method
+	}
+
+	return func(exit chan bool) {}
 }
 
 // Parsing
 // [command] {-optional-args...}
-func Parse(input string) command {
-	c := &command{}
+func Parse(input string) *Command {
+	c := &Command{}
 
 	args := strings.Split(input, " ")
 	c.command = args[0]
@@ -41,7 +85,8 @@ func Parse(input string) command {
 	// ERROR
 	if !cmap[c.command] {
 		c.message = "ERROR: Command not found!"
-		return *c
+		c.giveerror = true
+		return c
 	}
 
 	for i := range len(args) {
@@ -50,10 +95,5 @@ func Parse(input string) command {
 		}
 	}
 
-	return *c
-}
-
-// Redirect method
-func Direct(cc commandcontrol) {
-	cc.redirect()
+	return c
 }

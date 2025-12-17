@@ -1,33 +1,92 @@
-package Client
-
-import (
-	"fmt"
-	"sync"
-)
+package client
 
 // Workers for listening to broadcasts
-type broadcastlistenerW struct {
-	source chan interface{}
-	quit   chan interface{}
+type wbroker struct {
+	cmethodsig func(exit chan bool) // The method
+	name       string
+	status     string
+	start      chan bool
+	exit       chan bool // Channel for exiting
 }
 
-func (blw *broadcastlistenerW) Start() {
-	blw.source = make(chan interface{}, 10)
+type wbrokercontroller struct {
+	wbrokerlist []wbroker // The list of all the workers
+	error       bool
+	message     string
+}
 
-	go func() {
-		for {
+// Add a worker
+// Learning: We need to make sure that we're not using a copy of wbrokercontroller but the direct reference
+func (w *wbrokercontroller) addworker(c *Command) bool {
+
+	newworker := &wbroker{}
+	newworker.exit = make(chan bool)
+	newworker.cmethodsig = c.redirect(newworker.exit) // Running the command redirect to give us the function we're using
+	newworker.name = c.command
+	newworker.status = "WORKER: Currently being configured"
+
+	w.message = "STATUS: Configuring new worker"
+
+	// Check for duplicate
+	for i := range w.wbrokerlist {
+		worker := w.wbrokerlist[i]
+		if worker.name == newworker.name {
+			w.error = true
+			w.message = "ERROR: Broker cannot add duplicate workers"
+		}
+	}
+
+	// No error then we should just add it to the list and then start the method
+	if !w.error {
+
+		// Adding the new worker to the broker controller list
+		w.wbrokerlist = append(w.wbrokerlist, *newworker)
+
+		// Signal that the worker should start
+		newworker.start = make(chan bool)
+		newworker.start <- true
+
+	} else {
+		return w.error
+	}
+
+	return w.error
+}
+
+// Remove a worker
+func (w *wbrokercontroller) removeworker() {
+
+}
+
+// Check status
+func (w *wbrokercontroller) status() {
+
+}
+
+func (w *wbrokercontroller) maintain(exitmaintain chan bool) {
+
+	for {
+		for i := range w.wbrokerlist {
+			worker := w.wbrokerlist[i]
+
 			select {
-			case msg := <-blw.source: // What to do with the message
-				fmt.Printf(`%s`, msg)
-			case <-blw.quit: // What to do when quitting
+			case <-worker.start:
+				go worker.cmethodsig(worker.exit)
+			case <-exitmaintain:
 				return
 			}
 		}
-	}()
+	}
+
 }
 
-// Thread safe Worker Group
-type tslice struct {
-	sync.Mutex
-	workers []*broadcastlistenerW
+// The init for a broker
+func InitBroker() *wbrokercontroller {
+	broker := &wbrokercontroller{}
+
+	// Start the listener for the broker
+	exitmaintain := make(chan bool)
+	go broker.maintain(exitmaintain)
+
+	return broker
 }
