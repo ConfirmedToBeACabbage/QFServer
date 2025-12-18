@@ -1,6 +1,9 @@
 package client
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type CMethodSig interface {
 	help(chan bool)
@@ -20,6 +23,14 @@ type Command struct {
 // Command methods signed by commandcontrol
 func (c *Command) help(exit chan bool) {
 	for {
+
+		fmt.Printf("%s\n%s\n%s\n%s",
+			"***HELP***",
+			"Inbox: Show incoming mail on LAN (inbox)",
+			"Draft: Draft some message and select a destination on LAN (draft [ip])",
+			"Util: Scanning, checking to see where an open receiver sits (util)")
+
+		exit <- true
 
 		if <-exit {
 			return

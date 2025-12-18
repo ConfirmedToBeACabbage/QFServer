@@ -1,5 +1,7 @@
 package client
 
+import "fmt"
+
 // Workers for listening to broadcasts
 type wbroker struct {
 	cmethodsig func(exit chan bool) // The method
@@ -10,7 +12,7 @@ type wbroker struct {
 }
 
 type wbrokercontroller struct {
-	wbrokerlist []wbroker // The list of all the workers
+	wbrokerlist map[string]wbroker // The list of all the workers
 	error       bool
 	message     string
 }
@@ -21,7 +23,9 @@ func (w *wbrokercontroller) addworker(c *Command) bool {
 
 	newworker := &wbroker{}
 	newworker.exit = make(chan bool)
-	newworker.cmethodsig = c.redirect(newworker.exit) // Running the command redirect to give us the function we're using
+	newworker.exit <- false
+	// The new worker has the method sig assigned while also passing the exit channel. Which it holds in its own structure too.
+	newworker.cmethodsig = c.redirect(newworker.exit)
 	newworker.name = c.command
 	newworker.status = "WORKER: Currently being configured"
 
@@ -40,7 +44,7 @@ func (w *wbrokercontroller) addworker(c *Command) bool {
 	if !w.error {
 
 		// Adding the new worker to the broker controller list
-		w.wbrokerlist = append(w.wbrokerlist, *newworker)
+		w.wbrokerlist[newworker.name] = *newworker
 
 		// Signal that the worker should start
 		newworker.start = make(chan bool)
@@ -53,16 +57,14 @@ func (w *wbrokercontroller) addworker(c *Command) bool {
 	return w.error
 }
 
-// Remove a worker
-func (w *wbrokercontroller) removeworker() {
-
-}
-
 // Check status
-func (w *wbrokercontroller) status() {
+func (w *wbrokercontroller) status(name string) []string {
+	worker := w.wbrokerlist[name]
 
+	return []string{worker.name, fmt.Sprintf("%v", worker.start), worker.status}
 }
 
+// The main broker routine
 func (w *wbrokercontroller) maintain(exitmaintain chan bool) {
 
 	for {
@@ -70,8 +72,15 @@ func (w *wbrokercontroller) maintain(exitmaintain chan bool) {
 			worker := w.wbrokerlist[i]
 
 			select {
-			case <-worker.start:
-				go worker.cmethodsig(worker.exit)
+			case chkstart := <-worker.start:
+				if chkstart {
+					go worker.cmethodsig(worker.exit)
+				}
+			case chkend := <-worker.exit:
+				if chkend {
+					worker.exit <- true
+					worker.start <- false
+				}
 			case <-exitmaintain:
 				return
 			}
