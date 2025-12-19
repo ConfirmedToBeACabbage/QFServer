@@ -17,43 +17,62 @@ func ClientLoop() {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Quit channel
-	exit := make(chan bool)
+	exitclient := make(chan bool)
 
 	// Give us the broker
 	br := InitBroker()
 
 	if br == nil {
-		fmt.Println("ERROR: Broker has not begun")
-		<-exit
+		fmt.Println("\nERROR: Broker has not begun")
+		exitclient <- true
 	}
 
-	go func() {
-
-		for {
-			fmt.Println(`QFServer CLI! Type in "Help" to get started.`)
-			fmt.Print("> ")
-			input, err := reader.ReadString('\n')
-
-			inputparse := Parse(input)
-
-			// Redirect with the command
-			if !inputparse.giveerror {
-				br.addworker(inputparse)
-			} else {
-				fmt.Println(inputparse.message)
-				exit <- true
-			}
-
-			if err != nil {
-				fmt.Println(input)
-			} else {
-				exit <- true
-			}
-		}
-
-	}()
-
-	if <-exit {
+	select {
+	case <-exitclient:
 		return
+	default:
+		fmt.Println("\nLOG: Default")
+		go func() {
+
+			fmt.Println("\nLOG: Inside")
+			for {
+				fmt.Println("\nQFServer CLI! Type in ->Help<- to get started.")
+				fmt.Print("> ")
+				input, err := reader.ReadString('\n')
+
+				// Parsing
+				inputparse := Parse(input)
+				fmt.Printf("\nLOG: We have parsed!")
+
+				// Redirect with the command
+				if !inputparse.giveerror {
+					ok := br.configureworker(inputparse)
+
+					fmt.Printf("\nLOG: [Broker] Return value %v", ok)
+
+					if !ok {
+						fmt.Printf("\nLOG: We have added a worker for this command!")
+						continue
+					} else {
+						fmt.Printf("\nLOG: We have not made the worker!")
+						fmt.Printf("\nLOG: [Broker] %s", br.message)
+					}
+				} else {
+					fmt.Println(inputparse.message)
+					exitclient <- true
+				}
+
+				if err != nil {
+					fmt.Println(input)
+				} else {
+					exitclient <- true
+				}
+			}
+
+		}()
+		fmt.Println("\nLOG: Default exiting")
+
 	}
+
+	<-exitclient
 }

@@ -22,64 +22,47 @@ type Command struct {
 
 // Command methods signed by commandcontrol
 func (c *Command) help(exit chan bool) {
-	for {
+	fmt.Printf("\nMESSAGE:%s\n%s\n%s\n%s",
+		"***HELP***",
+		"Inbox: Show incoming mail on LAN (inbox)",
+		"Draft: Draft some message and select a destination on LAN (draft [ip])",
+		"Util: Scanning, checking to see where an open receiver sits (util)")
 
-		fmt.Printf("%s\n%s\n%s\n%s",
-			"***HELP***",
-			"Inbox: Show incoming mail on LAN (inbox)",
-			"Draft: Draft some message and select a destination on LAN (draft [ip])",
-			"Util: Scanning, checking to see where an open receiver sits (util)")
-
-		exit <- true
-
-		if <-exit {
-			return
-		}
-	}
+	exit <- true
 }
 
 func (c *Command) inbox(exit chan bool) {
-	for {
 
-		if <-exit {
-			return
-		}
-	}
 }
 
 func (c *Command) draft(exit chan bool) {
-	for {
 
-		if <-exit {
-			return
-		}
-	}
 }
 
 func (c *Command) util(exit chan bool) {
-	for {
 
-		if <-exit {
-			return
-		}
-	}
 }
 
 // Main redirect method
 func (c *Command) redirect(exit chan bool) func(exit chan bool) {
 
-	funcmapping := map[string]func(chan bool){
+	cmap := map[string]func(chan bool){
 		"help":  c.help,
 		"inbox": c.inbox,
 		"draft": c.draft,
 		"util":  c.util,
 	}
 
-	if method, exists := funcmapping[c.command]; exists {
-		return method
-	}
+	methodcall := strings.TrimSpace(c.command)
 
-	return func(exit chan bool) {}
+	method, ok := cmap[methodcall]
+	if ok {
+		fmt.Printf("\nLOG: Returning appropriate method")
+		return method
+	} else {
+		fmt.Printf("\nLOG: Could not find the method! %v \n In map of %v", c.command, cmap)
+		return func(exit chan bool) { fmt.Printf("\nEMPTY METHOD") }
+	}
 }
 
 // Parsing
@@ -94,7 +77,9 @@ func Parse(input string) *Command {
 	cmap := map[string]bool{"help": true, "inbox": true, "draft": true, "util": true, "redirect": true}
 
 	// ERROR
-	if !cmap[c.command] {
+	_, ok := cmap[c.command]
+	if ok {
+		fmt.Printf("\nLOG: [Error] Command is %s", c.command)
 		c.message = "ERROR: Command not found!"
 		c.giveerror = true
 		return c
