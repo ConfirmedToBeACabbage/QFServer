@@ -133,6 +133,12 @@ func (w *wbrokercontroller) maintain(exitmaintain chan bool, readyforinput chan 
 					if exitworker {
 						worker.setStatus("STATUS: Exiting the worker!")
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
+
+						// Closing the channels used in the worker
+						close(worker.exit)
+						close(worker.start)
+
+						// Ready for next input (It has been completed)
 						readyforinput <- true
 					}
 				default:
