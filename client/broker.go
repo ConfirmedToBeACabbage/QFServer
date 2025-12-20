@@ -91,9 +91,6 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	newworker.cmethodsig = start
 	newworker.cmethodmaintain = maintain
 
-	// Should I have a shutdown method also? AKA listener needs to shutdown
-	//newworker.cmethodexit = c.redirectexit(newworker.shutdown)
-
 	logger.Store("BROKER", "Worker has method assigned")
 	newworker.name = c.command
 
