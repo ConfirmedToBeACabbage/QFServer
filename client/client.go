@@ -9,70 +9,81 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
+	"time"
+
+	"github.com/QFServer/log"
 )
 
 func ClientLoop() {
+
+	// Logger
+	logger := log.GetInstance()
 
 	// Reader
 	reader := bufio.NewReader(os.Stdin)
 
 	// Quit channel
-	exitclient := make(chan bool)
+	exitclient := make(chan bool, 1)
+
+	// Ready for input channel
+	readyforinput := make(chan bool, 1)
+	readyforinput <- true
 
 	// Give us the broker
-	br := InitBroker()
+	br := InitBroker(readyforinput)
 
 	if br == nil {
-		fmt.Println("\nERROR: Broker has not begun")
+		logger.Store("CLIENT", "Broker has not begun")
 		exitclient <- true
 	}
 
-	select {
-	case <-exitclient:
-		return
-	default:
-		fmt.Println("\nLOG: Default")
-		go func() {
+	go func() {
 
-			fmt.Println("\nLOG: Inside")
-			for {
-				fmt.Println("\nQFServer CLI! Type in ->Help<- to get started.")
-				fmt.Print("> ")
-				input, err := reader.ReadString('\n')
+		for {
+			select {
+			case ready := <-readyforinput:
+				if ready {
+					fmt.Println("\nQFServer CLI! Type in - Help - to get started.")
+					fmt.Print("> ")
+					input, err := reader.ReadString('\n')
 
-				// Parsing
-				inputparse := Parse(input)
-				fmt.Printf("\nLOG: We have parsed!")
+					// Default exit
+					if strings.TrimSpace(input) == "quit" {
+						exitclient <- true
+					}
 
-				// Redirect with the command
-				if !inputparse.giveerror {
-					ok := br.configureworker(inputparse)
+					// Parsing
+					inputparse := Parse(input)
+					logger.Store("CLIENT", "We have completed command parsing!")
 
-					fmt.Printf("\nLOG: [Broker] Return value %v", ok)
+					// Redirect with the command
+					if !inputparse.giveerror {
+						ok := br.configureworker(inputparse)
 
-					if !ok {
-						fmt.Printf("\nLOG: We have added a worker for this command!")
-						continue
+						if ok {
+							logger.Store("CLIENT", "The worker has not been made by the broker"+br.message)
+						}
+
 					} else {
-						fmt.Printf("\nLOG: We have not made the worker!")
-						fmt.Printf("\nLOG: [Broker] %s", br.message)
+						fmt.Println(inputparse.message)
+					}
+
+					if err != nil {
+						fmt.Println(input)
 					}
 				} else {
-					fmt.Println(inputparse.message)
-					exitclient <- true
+					time.Sleep(time.Millisecond * 100)
 				}
-
-				if err != nil {
-					fmt.Println(input)
-				} else {
-					exitclient <- true
+			case exit := <-exitclient:
+				if exit {
+					return
 				}
+			default:
+				time.Sleep(time.Millisecond * 100)
 			}
-
-		}()
-		fmt.Println("\nLOG: Default exiting")
-
-	}
+		}
+	}()
 
 	<-exitclient
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/QFServer/log"
 )
 
 // Workers for listening to broadcasts
@@ -43,15 +45,12 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	fmt.Printf("\n[BROKER] LOG: Configuring a new worker for command: %s\n", c.command)
-
+	logger := log.GetInstance()
+	logger.Store("BROKER", "Configuring a new worker for command:"+c.command)
 	newworker := &wbroker{}
-
-	fmt.Printf("\n[BROKER] LOG: New worker has been instantiated")
-
+	logger.Store("BROKER", "New Worker has been instantiated")
 	newworker.exit = make(chan bool, 1)
-
-	fmt.Printf("\n[BROKER] LOG: Worker has a channel created")
+	logger.Store("BROKER", "Worker has a channel created")
 
 	// Learning: This below would cause a freeze if unbuffered channel
 	newworker.exit <- false
@@ -59,22 +58,18 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	// it will be an unbuffered channel.
 	// What we can do is buffer it above by doing make(chan bool, 1)
 
-	fmt.Printf("\n[BROKER] LOG: Worker channel is setup")
-
+	logger.Store("BROKER", "Worker channel is setup")
 	// The new worker has the method sig assigned while also passing the exit channel. Which it holds in its own structure too.
 	newworker.cmethodsig = c.redirect(newworker.exit)
 
-	fmt.Printf("\n[BROKER] LOG: Worker has method assigned")
-
+	logger.Store("BROKER", "Worker has method assigned")
 	newworker.name = c.command
 
-	fmt.Printf("\n[BROKER] LOG: Worker has name assigned")
-
+	logger.Store("BROKER", "Worker has name assigned")
 	newworker.status = "WORKER: Currently being configured"
-
 	newworker.setStatus("STATUS: Configuring new worker")
 
-	fmt.Printf("\n[BROKER] LOG: We have completed a new worker configuration")
+	logger.Store("BROKER", "We have completed a new worker configuration")
 
 	// Check for duplicate
 	_, duplicate := w.wbrokerlist[newworker.name]
@@ -84,7 +79,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 		return w.error
 	} else {
 
-		fmt.Printf("\n[BROKER] LOG: Adding to the worker list")
+		logger.Store("BROKER", "Adding to the worker list")
 
 		// Adding the new worker to the broker controller list
 		// Learning: We have to actually initialize the map. It's nil right now, we will do that
@@ -97,7 +92,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 
 		w.error = false
 
-		fmt.Printf("\n[BROKER] LOG: All done! Error %v", w.error)
+		logger.Store("BROKER", "All done! Error "+fmt.Sprint(w.error))
 
 		newworker.setStatus("[STATUS] Ready to init!")
 	}
@@ -113,45 +108,49 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 // }
 
 // The main broker routine
-func (w *wbrokercontroller) maintain(exitmaintain chan bool) {
+func (w *wbrokercontroller) maintain(exitmaintain chan bool, readyforinput chan bool) {
 
-	for {
-		select {
-		case <-exitmaintain:
-			return
-		default:
+	logger := log.GetInstance()
+
+	go func() {
+
+		for {
 			for i := range w.wbrokerlist {
 				worker := w.wbrokerlist[i]
 
-				fmt.Printf("\nLOG: [Broker] Checking worker: %v", worker.status)
+				logger.Store("BROKER", "Checking worker: "+worker.status)
 
 				// Learning: Select is good for not blocking and waiting for channel
 				select {
 				case start := <-worker.start:
 					if start {
 						worker.setStatus("STATUS: Beginning the goroutine")
-						fmt.Printf("\nLOG: [Broker] Worker status: %v for name %v and method %v", worker.getStatus(), worker.name, worker.cmethodsig)
+						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodsig(worker.exit)
+						worker.start <- false // To make sure we don't restart it
 					}
 				case exitworker := <-worker.exit:
 					if exitworker {
 						worker.setStatus("STATUS: Exiting the worker!")
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
+						readyforinput <- true
 					}
 				default:
-					continue
+					time.Sleep(time.Millisecond * 100) // Add a small delay
 				}
 			}
 
-			time.Sleep(time.Second * 5)
-			fmt.Printf("\nLOG: [Broker] Checking workers...")
+			logger.Store("BROKER", "Checking workers...")
 		}
-	}
+
+	}()
+
+	<-exitmaintain
 
 }
 
 // The init for a broker
-func InitBroker() *wbrokercontroller {
+func InitBroker(readyforinput chan bool) *wbrokercontroller {
 	broker := &wbrokercontroller{
 		// Learning: Make does a couple things
 		// 1. Allocate memory
@@ -162,7 +161,7 @@ func InitBroker() *wbrokercontroller {
 
 	// Start the listener for the broker
 	exitmaintain := make(chan bool)
-	go broker.maintain(exitmaintain)
+	go broker.maintain(exitmaintain, readyforinput)
 
 	fmt.Printf("\nLOG: Done!")
 

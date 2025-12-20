@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/QFServer/client"
+	"github.com/QFServer/log"
 )
 
 func main() {
-	// Begin client loop
-	fmt.Printf("\nLOG: Starting client!")
+	// Begin the logging
+	logger := log.GetInstance()
+	logger.Store("init", "Log has begun!")
+
 	client.ClientLoop()
 }

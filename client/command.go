@@ -3,6 +3,8 @@ package client
 import (
 	"fmt"
 	"strings"
+
+	"github.com/QFServer/log"
 )
 
 type CMethodSig interface {
@@ -22,29 +24,35 @@ type Command struct {
 
 // Command methods signed by commandcontrol
 func (c *Command) help(exit chan bool) {
-	fmt.Printf("\nMESSAGE:%s\n%s\n%s\n%s",
-		"***HELP***",
+	fmt.Printf("\n%s\n%s\n%s\n%s\n%s",
+		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
 		"Draft: Draft some message and select a destination on LAN (draft [ip])",
-		"Util: Scanning, checking to see where an open receiver sits (util)")
+		"Util: Scanning, checking to see where an open receiver sits (util)",
+		"Quit: This will quit the program\n")
 
 	exit <- true
 }
 
 func (c *Command) inbox(exit chan bool) {
-
+	// We would have to just check for connections pooled?
+	// Then when the connections are pooled we can either open them with a token
+	// Or choose to receive them. We can also see the contents before we download
 }
 
 func (c *Command) draft(exit chan bool) {
-
+	// This is where we would have a pool of known nodes on the network.
 }
 
 func (c *Command) util(exit chan bool) {
-
+	// Util should have a couple functions; We're starting with scanning and locating
+	// possible receivers
 }
 
 // Main redirect method
 func (c *Command) redirect(exit chan bool) func(exit chan bool) {
+
+	logger := log.GetInstance()
 
 	cmap := map[string]func(chan bool){
 		"help":  c.help,
@@ -57,17 +65,20 @@ func (c *Command) redirect(exit chan bool) func(exit chan bool) {
 
 	method, ok := cmap[methodcall]
 	if ok {
-		fmt.Printf("\nLOG: Returning appropriate method")
+		logger.Store("COMMAND", "Returning appropriate method")
 		return method
 	} else {
-		fmt.Printf("\nLOG: Could not find the method! %v \n In map of %v", c.command, cmap)
-		return func(exit chan bool) { fmt.Printf("\nEMPTY METHOD") }
+		logger.Store("COMMAND", "Could not find the method! "+c.command+" In map of "+fmt.Sprint(cmap))
+		return func(exit chan bool) { fmt.Printf("\nNIL") }
 	}
 }
 
 // Parsing
 // [command] {-optional-args...}
 func Parse(input string) *Command {
+
+	logger := log.GetInstance()
+
 	c := &Command{}
 
 	args := strings.Split(input, " ")
@@ -79,7 +90,7 @@ func Parse(input string) *Command {
 	// ERROR
 	_, ok := cmap[c.command]
 	if ok {
-		fmt.Printf("\nLOG: [Error] Command is %s", c.command)
+		logger.Store("COMMAND", "Could not find command "+c.command)
 		c.message = "ERROR: Command not found!"
 		c.giveerror = true
 		return c
