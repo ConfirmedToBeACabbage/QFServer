@@ -49,28 +49,51 @@ func (c *Command) util(exit chan bool) {
 	// possible receivers
 }
 
+// The listener method which is used as a maintainer
+func (c *Command) listen(maintain chan bool) {
+
+}
+
 // Main redirect method
-func (c *Command) redirect(exit chan bool) func(exit chan bool) {
+func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool), func(chan bool)) {
 
-	logger := log.GetInstance()
+	// logger := log.GetInstance()
 
-	cmap := map[string]func(chan bool){
+	cmapstart := map[string]func(chan bool){
 		"help":  c.help,
 		"inbox": c.inbox,
 		"draft": c.draft,
 		"util":  c.util,
 	}
 
+	cmapmaintain := map[string]func(chan bool){
+		"listen": c.listen,
+	}
+
+	// Method call
 	methodcall := strings.TrimSpace(c.command)
 
-	method, ok := cmap[methodcall]
-	if ok {
-		logger.Store("COMMAND", "Returning appropriate method")
-		return method
-	} else {
-		logger.Store("COMMAND", "Could not find the method! "+c.command+" In map of "+fmt.Sprint(cmap))
-		return func(exit chan bool) { fmt.Printf("\nNIL") }
+	// Setting up the return list
+	returnlist := make([]func(controller chan bool), 2)
+	returnlist[0] = func(exit chan bool) { fmt.Print("\nEMPTY\n") }
+	returnlist[1] = func(maintain chan bool) { fmt.Print("\nEMPTY\n") }
+
+	if len(c.args) > 1 {
+		argcall := strings.TrimSpace(c.args[1])
+		maintainmethod, okmaintain := cmapmaintain[argcall]
+
+		if okmaintain {
+			returnlist[1] = func(maintain chan bool) { maintainmethod(maintain) }
+		}
 	}
+
+	startmethod, okstart := cmapstart[methodcall]
+
+	if okstart {
+		returnlist[0] = func(exit chan bool) { startmethod(exit) }
+	}
+
+	return returnlist[0], returnlist[1]
 }
 
 // Parsing

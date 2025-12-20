@@ -11,12 +11,14 @@ import (
 // Workers for listening to broadcasts
 // Learnings: Data races
 type wbroker struct {
-	cmethodsig func(exit chan bool) // The method
-	name       string
-	status     string
-	start      chan bool
-	exit       chan bool  // Channel for exiting
-	mu         sync.Mutex // Added for synch and protecting against data races
+	cmethodsig      func(exit chan bool)     // The start method
+	cmethodmaintain func(maintain chan bool) // The maintain method
+	name            string
+	status          string
+	start           chan bool  // Channel for starting
+	maintain        chan bool  // Channel for maintain
+	exit            chan bool  // Channel for exiting
+	mu              sync.Mutex // Added for synch and protecting against data races
 }
 
 func (w *wbroker) setStatus(status string) {
@@ -73,6 +75,8 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	newworker := &wbroker{}
 	logger.Store("BROKER", "New Worker has been instantiated")
 	newworker.exit = make(chan bool, 1)
+	newworker.start = make(chan bool, 1)
+	newworker.maintain = make(chan bool, 1)
 	logger.Store("BROKER", "Worker has a channel created")
 
 	// Learning: This below would cause a freeze if unbuffered channel
@@ -83,7 +87,12 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 
 	logger.Store("BROKER", "Worker channel is setup")
 	// The new worker has the method sig assigned while also passing the exit channel. Which it holds in its own structure too.
-	newworker.cmethodsig = c.redirect(newworker.exit)
+	start, maintain := c.redirect(newworker.exit, newworker.maintain)
+	newworker.cmethodsig = start
+	newworker.cmethodmaintain = maintain
+
+	// Should I have a shutdown method also? AKA listener needs to shutdown
+	//newworker.cmethodexit = c.redirectexit(newworker.shutdown)
 
 	logger.Store("BROKER", "Worker has method assigned")
 	newworker.name = c.command
