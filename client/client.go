@@ -50,6 +50,9 @@ func ClientLoop() {
 
 					// Default exit
 					if strings.TrimSpace(input) == "quit" {
+						shutdownbroker := make(chan bool)
+						go br.gracefulshutdown(shutdownbroker)
+						<-shutdownbroker
 						exitclient <- true
 					}
 
@@ -86,4 +89,5 @@ func ClientLoop() {
 	}()
 
 	<-exitclient
+	close(exitclient)
 }

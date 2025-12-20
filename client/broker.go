@@ -32,10 +32,33 @@ func (w *wbroker) getStatus() string {
 }
 
 type wbrokercontroller struct {
-	wbrokerlist map[string]*wbroker // The list of all the workers
-	error       bool
-	message     string
-	mu          sync.Mutex
+	wbrokerlist  map[string]*wbroker // The list of all the workers
+	error        bool
+	message      string
+	mu           sync.Mutex
+	exitmaintain chan bool
+}
+
+// This is simply a graceful shutdown. Since all the channels are basically associated with the
+// relationship between the broker and the workers, we can in a centralized fashion shut it all
+// down
+func (w *wbrokercontroller) gracefulshutdown(shutdown chan bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.exitmaintain <- true
+
+	for i := range w.wbrokerlist {
+		worker := w.wbrokerlist[i]
+
+		worker.exit <- true
+		worker.start <- false
+
+		close(worker.exit)
+		close(worker.start)
+	}
+
+	shutdown <- true
 }
 
 // Add a worker
@@ -108,7 +131,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 // }
 
 // The main broker routine
-func (w *wbrokercontroller) maintain(exitmaintain chan bool, readyforinput chan bool) {
+func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 
 	logger := log.GetInstance()
 
@@ -151,7 +174,8 @@ func (w *wbrokercontroller) maintain(exitmaintain chan bool, readyforinput chan 
 
 	}()
 
-	<-exitmaintain
+	<-w.exitmaintain
+	close(w.exitmaintain)
 
 }
 
@@ -162,12 +186,12 @@ func InitBroker(readyforinput chan bool) *wbrokercontroller {
 		// 1. Allocate memory
 		// 2. Initialize data structure
 		// Good practice when working with slices, maps, and channels
-		wbrokerlist: make(map[string]*wbroker),
+		wbrokerlist:  make(map[string]*wbroker),
+		exitmaintain: make(chan bool),
 	}
 
 	// Start the listener for the broker
-	exitmaintain := make(chan bool)
-	go broker.maintain(exitmaintain, readyforinput)
+	go broker.maintain(readyforinput)
 
 	fmt.Printf("\nLOG: Done!")
 
