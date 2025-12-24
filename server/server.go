@@ -155,10 +155,20 @@ func (si *ServerInstance) BroadcastStateChange() {
 
 // Server Instance creator
 var (
-	instance *ServerInstance
-	once     sync.Once
+	serverinstance *ServerInstance
+	once           sync.Once
 )
 
+// Simple check alive for the server instance
+func CheckServerAlive() bool {
+	if serverinstance == nil {
+		return false
+	} else {
+		return true
+	}
+}
+
+// The init of the server with once.do for singelton
 func ServerInitSingleton() *ServerInstance {
 	once.Do(func() {
 		instance := &ServerInstance{
@@ -167,8 +177,8 @@ func ServerInitSingleton() *ServerInstance {
 			pingopen: false,
 			reqopen:  false,
 			handlers: map[string]func(w http.ResponseWriter, r *http.Request){
-				"/":    instance.handleping, // Handle pings
-				"/req": instance.handlereq,  // Handle pools
+				"/":    serverinstance.handleping, // Handle pings
+				"/req": serverinstance.handlereq,  // Handle pools
 			},
 			srv:       &http.Server{},
 			broadcast: make(chan bool),
@@ -201,7 +211,7 @@ func ServerInitSingleton() *ServerInstance {
 		}
 	})
 
-	return instance
+	return serverinstance
 }
 
 // The server runner handling broadcast and normal connections
