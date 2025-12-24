@@ -152,13 +152,10 @@ func (si *ServerInstance) ListenAlive() {
 // Open channel for listening
 func (si *ServerInstance) AliveChange() {
 	select {
-	case current := <-si.broadcast:
-		if !current {
-			si.ListenAlive()
-			si.SendAlive()
+	case broadcastsignal := <-si.broadcast:
+		if !broadcastsignal {
 			si.broadcast <- true
 		} else {
-			si.buffer = make([]byte, 0)
 			si.broadcast <- false
 		}
 	default:
@@ -218,28 +215,38 @@ func ServerInitSingleton() *ServerInstance {
 	return instance
 }
 
-// Singleton of the server
+// The server runner handling broadcast and normal connections
 func ServerRun(exit chan bool) {
 
 	// Get the singleton and use it
 	instance := ServerInitSingleton()
 
-	// TODO: select statemetn for both udp and tls (this would be the exit channel and the broadcast channel)
-	// 	if <-si.broadcast { // If its true
-	// Lets listen here
-	// Go routine here which just listens
-	//}
-
-	// Signal we wait on to exit
-	<-exit
-	close(exit)
-
-	// Learning: context is just created so we can shutdown the server in this case, in 5 seconds in the background
+	// Context
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel() // Learning: Cancels the resources associated with the things we're canceling
 
-	// Shutdown the server
-	if err := instance.srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server Shutdown Failed:%+v", err)
+	// Server running loop
+	for {
+		select {
+		case broadcastsignal := <-instance.broadcast:
+			if broadcastsignal {
+				instance.ListenAlive()
+				instance.SendAlive()
+			} else {
+				instance.buffer = make([]byte, 0)
+			}
+		case exitsignal := <-exit:
+			if exitsignal {
+				close(exit)
+				close(instance.broadcast)
+
+				// Shutdown the server
+				if err := instance.srv.Shutdown(ctx); err != nil {
+					log.Fatalf("Server Shutdown Failed:%+v", err)
+				}
+
+				return
+			}
+		}
 	}
 }
