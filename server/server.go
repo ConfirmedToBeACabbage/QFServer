@@ -164,8 +164,8 @@ func ServerInitSingleton() *ServerInstance {
 			pingopen: true,
 			reqopen:  false,
 			handlers: map[string]func(w http.ResponseWriter, r *http.Request){
-				"/ping": instance.handleping, // Handle pings
-				"/req":  instance.handlereq,  // Handle pools
+				"/":    instance.handleping, // Handle pings
+				"/req": instance.handlereq,  // Handle pools
 			},
 			srv:       &http.Server{},
 			broadcast: make(chan bool),
