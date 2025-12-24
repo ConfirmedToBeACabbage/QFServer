@@ -163,7 +163,7 @@ func ServerInitSingleton() *ServerInstance {
 		instance := &ServerInstance{
 			pingpool: make(map[string]string),
 			reqpool:  make(map[string]*http.Request),
-			pingopen: true,
+			pingopen: false,
 			reqopen:  false,
 			handlers: map[string]func(w http.ResponseWriter, r *http.Request){
 				"/":    instance.handleping, // Handle pings
