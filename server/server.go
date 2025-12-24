@@ -1,13 +1,5 @@
 package server
 
-// TODO:
-// This needs to all be in a structure and as a singleton
-// Also have shutdown methods etc
-// The shutdown would be called when the maintain channel closes
-// Startup method starts from the start method
-
-// The listener can act as both the receiver and listener. Should probablyy change the name
-
 import (
 	"context"
 	"fmt"
@@ -21,8 +13,6 @@ import (
 )
 
 // The server struct
-// Pool of incoming requests
-// Pool of lan avaliable users
 type ServerInstance struct {
 	// TLS section
 	pingpool map[string]string
@@ -73,7 +63,7 @@ func (si *ServerInstance) GetPingPool() map[string]string {
 }
 
 // Send an alive message
-func (si *ServerInstance) SendAlive() {
+func (si *ServerInstance) SendBroadcast() {
 	go func() {
 		addr := net.UDPAddr{
 			Port: 12345,
@@ -106,7 +96,7 @@ func (si *ServerInstance) SendAlive() {
 }
 
 // Listen for alive
-func (si *ServerInstance) ListenAlive() {
+func (si *ServerInstance) ListenBroadcast() {
 	go func() {
 		addr := net.UDPAddr{
 			Port: 12345,
@@ -150,7 +140,7 @@ func (si *ServerInstance) ListenAlive() {
 }
 
 // Open channel for listening
-func (si *ServerInstance) AliveChange() {
+func (si *ServerInstance) BroadcastStateChange() {
 	select {
 	case broadcastsignal := <-si.broadcast:
 		if !broadcastsignal {
@@ -163,13 +153,12 @@ func (si *ServerInstance) AliveChange() {
 	}
 }
 
-// Open port command
+// Server Instance creator
 var (
 	instance *ServerInstance
 	once     sync.Once
 )
 
-// Server Instance
 func ServerInitSingleton() *ServerInstance {
 	once.Do(func() {
 		instance := &ServerInstance{
@@ -230,8 +219,8 @@ func ServerRun(exit chan bool) {
 		select {
 		case broadcastsignal := <-instance.broadcast:
 			if broadcastsignal {
-				instance.ListenAlive()
-				instance.SendAlive()
+				instance.ListenBroadcast()
+				instance.SendBroadcast()
 			} else {
 				instance.buffer = make([]byte, 0)
 			}
