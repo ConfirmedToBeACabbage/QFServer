@@ -70,6 +70,7 @@ func ClientLoop() {
 
 					} else {
 						fmt.Println(inputparse.message)
+						readyforinput <- true
 					}
 
 					if err != nil {

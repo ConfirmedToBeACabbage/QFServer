@@ -167,7 +167,7 @@ func Parse(input string) *Command {
 	c := &Command{}
 
 	args := strings.Split(input, " ")
-	c.command = args[0]
+	c.command = strings.TrimSpace(args[0])
 
 	// Validate check
 	cmap := map[string]bool{"help": true, "inbox": true, "draft": true, "util": true, "redirect": true}
