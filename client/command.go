@@ -41,15 +41,21 @@ func (c *Command) inbox(exit chan bool) {
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
+	fmt.Println("Inbox!")
+	exit <- true
 }
 
 func (c *Command) draft(exit chan bool) {
 	// This is where we would have a pool of known nodes on the network.
+	fmt.Println("Exit!")
+	exit <- true
 }
 
 func (c *Command) util(exit chan bool) {
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
+	fmt.Println("Utility!")
+	exit <- true
 }
 
 // SERVER ARGS
@@ -173,10 +179,10 @@ func Parse(input string) *Command {
 	cmap := map[string]bool{"help": true, "inbox": true, "draft": true, "util": true, "redirect": true}
 
 	// ERROR
-	_, ok := cmap[c.command]
-	if ok {
+	_, ok := cmap[strings.TrimSpace(c.command)]
+	if !ok {
 		logger.Store("COMMAND", "Could not find command "+c.command)
-		c.message = "ERROR: Command not found!"
+		c.message = "ERROR: Command not found! " + c.command
 		c.giveerror = true
 		return c
 	}

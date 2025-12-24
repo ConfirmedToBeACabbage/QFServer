@@ -17,6 +17,7 @@ type wbroker struct {
 	status          string
 	start           chan bool  // Channel for starting
 	maintain        chan bool  // Channel for maintain
+	maintainstart   chan bool  // Channel to tell us if we're already maintaining with a goroutine
 	exit            chan bool  // Channel for exiting
 	mu              sync.Mutex // Added for synch and protecting against data races
 }
@@ -79,6 +80,9 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	newworker.exit = make(chan bool, 1)
 	newworker.start = make(chan bool, 1)
 	newworker.maintain = make(chan bool, 1)
+	newworker.maintainstart = make(chan bool, 1)
+	newworker.exit <- false
+
 	logger.Store("BROKER", "Worker has a channel created")
 
 	// Learning: This below would cause a freeze if unbuffered channel
@@ -118,8 +122,8 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 		w.wbrokerlist[newworker.name] = newworker
 
 		// Signal that the worker should start
-		newworker.start = make(chan bool, 1)
 		newworker.start <- true
+		newworker.maintainstart <- true
 
 		w.error = false
 
@@ -153,14 +157,29 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 
 				// Learning: Select is good for not blocking and waiting for channel
 				select {
-				case start := <-worker.start:
-					if start {
+				case startworker := <-worker.start:
+					if startworker {
 						worker.setStatus("STATUS: Beginning the goroutine")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodsig(worker.exit)
 						worker.start <- false // To make sure we don't restart it
 					}
-				case exitworker := <-worker.exit:
+				case maintainworker := <-worker.maintainstart:
+					if maintainworker {
+						worker.setStatus("STATUS: Beginning the maintain goroutine")
+						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
+						go worker.cmethodmaintain(worker.maintain)
+						worker.maintainstart <- false
+					}
+				case maintaincheck := <-worker.maintain:
+					if !maintaincheck {
+						worker.setStatus("STATUS: Turning off our maintenance")
+						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
+						close(worker.maintain)
+						close(worker.maintainstart)
+						worker.exit <- true
+					}
+				case exitworker := <-worker.exit: // Our delete channel for the worker
 					if exitworker {
 						worker.setStatus("STATUS: Exiting the worker!")
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
@@ -173,7 +192,7 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						readyforinput <- true
 					}
 				default:
-					time.Sleep(time.Millisecond * 100) // Add a small delay
+					time.Sleep(time.Millisecond * 500) // Add a small delay
 				}
 			}
 
