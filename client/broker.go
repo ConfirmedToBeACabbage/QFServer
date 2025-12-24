@@ -63,6 +63,8 @@ func (w *wbrokercontroller) gracefulshutdown(shutdown chan bool) {
 	shutdown <- true
 }
 
+// This is fun. It's like working with lego bricks but your computer does stuff. Falling back in love with a hobby is great.
+
 // Add a worker
 // Learning: We need to make sure that we're not using a copy of wbrokercontroller but the direct reference
 func (w *wbrokercontroller) configureworker(c *Command) bool {
