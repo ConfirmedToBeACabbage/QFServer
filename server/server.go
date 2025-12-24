@@ -139,7 +139,7 @@ func (si *ServerInstance) ListenBroadcast() {
 	}()
 }
 
-// Open channel for listening
+// Changing server states
 func (si *ServerInstance) BroadcastStateChange() {
 	select {
 	case broadcastsignal := <-si.broadcast:
@@ -151,6 +151,18 @@ func (si *ServerInstance) BroadcastStateChange() {
 	default:
 		return
 	}
+}
+
+// Open the server to be pinged
+func (si *ServerInstance) PingStateChange() bool {
+	si.pingopen = !si.pingopen
+	return si.pingopen
+}
+
+// Open the server to be requested
+func (si *ServerInstance) ReqStateChange() bool {
+	si.reqopen = !si.reqopen
+	return si.reqopen
 }
 
 // Server Instance creator
