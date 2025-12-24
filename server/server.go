@@ -86,12 +86,10 @@ func (si *ServerInstance) SendAlive() {
 		}
 		defer con.Close()
 
-		select {
-		case <-si.broadcast:
-			return
-		default:
-			for {
-				// Write our message
+		for current := range si.broadcast {
+			if !current {
+				return
+			} else {
 				message := []byte("[QFSERVER]ALIVEPING")
 				_, err = con.Write(message)
 
