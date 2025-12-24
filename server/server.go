@@ -116,15 +116,16 @@ func (si *ServerInstance) ListenAlive() {
 		defer con.Close()
 
 		con.SetDeadline(time.Now().Add(5 * time.Second))
-		buffer := make([]byte, 1024)
+
+		si.buffer = make([]byte, 1024)
 
 		for {
-			n, addr, err := con.ReadFromUDP(buffer)
+			n, addr, err := con.ReadFromUDP(si.buffer)
 			if err != nil {
 				break
 			}
 
-			fmt.Printf("Received response from %s: %s\n", addr.String(), string(buffer[:n]))
+			fmt.Printf("Received response from %s: %s\n", addr.String(), string(si.buffer[:n]))
 		}
 
 		<-si.broadcast
@@ -143,6 +144,7 @@ func (si *ServerInstance) AliveChange() {
 			si.SendAlive()
 		} else {
 			si.broadcast <- false
+			si.buffer = make([]byte, 0)
 		}
 	default:
 		return
