@@ -86,6 +86,7 @@ func (si *ServerInstance) SendAlive() {
 		}
 		defer con.Close()
 
+		// Learning: If i'm just looping over one channel I can do this
 		for current := range si.broadcast {
 			if !current {
 				return
