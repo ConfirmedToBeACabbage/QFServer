@@ -66,6 +66,8 @@ func (c *Command) srvbroadcast(maintain chan bool) {
 		server.ServerInitSingleton().BroadcastStateChange()
 	}
 
+	fmt.Printf("SERVER: We have begun broadcasting")
+
 }
 
 // SERVER: Open; This should open the server
@@ -75,6 +77,27 @@ func (c *Command) srvopen(maintain chan bool) {
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
 		server.ServerRun(maintain)
+	}
+
+	fmt.Printf("SERVER: The server has now begun running and is open")
+
+}
+
+// SERVER: pool; This should show us the pool of users which we have on lan that we can send to
+func (c *Command) srvpool(maintain chan bool) {
+
+	// Check server
+	serveractive := server.CheckServerAlive()
+	if !serveractive {
+		fmt.Printf("FAIL: You must run 'util server open' to first open the server")
+		return
+	} else {
+		poollist := server.ServerInitSingleton().GetPingPool()
+
+		fmt.Println("Address | Host")
+		for i, v := range poollist {
+			fmt.Println(i + " | " + v)
+		}
 	}
 
 }
@@ -94,6 +117,7 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	cmapserver := map[string]func(chan bool){
 		"broadcast": c.srvbroadcast, // Broadcast our client
 		"open":      c.srvopen,
+		"pool":      c.srvpool,
 	}
 
 	cmaprouteutil := map[string]map[string]func(chan bool){
