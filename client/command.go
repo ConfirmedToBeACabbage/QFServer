@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/QFServer/log"
+	"github.com/QFServer/server"
 )
 
 type CMethodSig interface {
@@ -24,11 +25,13 @@ type Command struct {
 
 // Command methods signed by commandcontrol
 func (c *Command) help(exit chan bool) {
-	fmt.Printf("\n%s\n%s\n%s\n%s\n%s",
+	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
 		"Draft: Draft some message and select a destination on LAN (draft [ip])",
 		"Util: Scanning, checking to see where an open receiver sits (util)",
+		"      - server open: This would start the server and get it ready for scanning",
+		"      - server broadcast: This would start broadcasting your server. Other node pools can pick it up and add it on LAN",
 		"Quit: This will quit the program\n")
 
 	exit <- true
@@ -49,8 +52,30 @@ func (c *Command) util(exit chan bool) {
 	// possible receivers
 }
 
-// The listener method which is used as a maintainer
-func (c *Command) listen(maintain chan bool) {
+// SERVER ARGS
+
+// SERVER: Listener; This would start the broadcast listener
+func (c *Command) srvbroadcast(maintain chan bool) {
+
+	// Check server
+	serveractive := server.CheckServerAlive()
+	if !serveractive {
+		fmt.Printf("FAIL: You must run 'util server open' to first open the server")
+		return
+	} else {
+		server.ServerInitSingleton().BroadcastStateChange()
+	}
+
+}
+
+// SERVER: Open; This should open the server
+func (c *Command) srvopen(maintain chan bool) {
+
+	// Init the server
+	serveractive := server.CheckServerAlive()
+	if !serveractive {
+		server.ServerRun(maintain)
+	}
 
 }
 
@@ -67,7 +92,8 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	}
 
 	cmapmaintain := map[string]func(chan bool){
-		"listen": c.listen,
+		"broadcast": c.srvbroadcast, // Broadcast our client
+		"open":      c.srvopen,
 	}
 
 	// Method call
