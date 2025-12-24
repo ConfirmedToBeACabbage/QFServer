@@ -152,17 +152,15 @@ func (si *ServerInstance) ListenAlive() {
 
 // Open channel for listening
 func (si *ServerInstance) AliveChange() {
-	si.broadcast <- !<-si.broadcast
-
 	select {
 	case current := <-si.broadcast:
 		if !current {
-			si.broadcast <- true
 			si.ListenAlive()
 			si.SendAlive()
+			si.broadcast <- true
 		} else {
-			si.broadcast <- false
 			si.buffer = make([]byte, 0)
+			si.broadcast <- false
 		}
 	default:
 		return
