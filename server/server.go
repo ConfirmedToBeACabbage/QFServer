@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -94,6 +95,10 @@ func (si *ServerInstance) SendAlive() {
 				message := []byte("[QFSERVER]ALIVEPING")
 				_, err = con.Write(message)
 
+				if err == nil {
+					fmt.Printf("Error: %v", err)
+				}
+
 				time.Sleep(time.Second * 5)
 				fmt.Println("Sending a broadcast")
 			}
@@ -123,6 +128,19 @@ func (si *ServerInstance) ListenAlive() {
 			n, addr, err := con.ReadFromUDP(si.buffer)
 			if err != nil {
 				break
+			}
+
+			// Check duplicates
+			_, exists := si.pingpool[addr.String()]
+			senderhostname, errhostname := net.LookupHost(addr.IP.String())
+			if !exists {
+
+				if errhostname != nil {
+					// Store [address] = hostname
+					si.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+				} else {
+					fmt.Printf("Could not resolve hostname!")
+				}
 			}
 
 			fmt.Printf("Received response from %s: %s\n", addr.String(), string(si.buffer[:n]))
