@@ -91,9 +91,13 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 		"util":  c.util,
 	}
 
-	cmapmaintain := map[string]func(chan bool){
+	cmapserver := map[string]func(chan bool){
 		"broadcast": c.srvbroadcast, // Broadcast our client
 		"open":      c.srvopen,
+	}
+
+	cmaprouteutil := map[string]map[string]func(chan bool){
+		"server": cmapserver,
 	}
 
 	// Method call
@@ -104,12 +108,20 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	returnlist[0] = func(exit chan bool) { fmt.Print("\nEMPTY\n") }
 	returnlist[1] = func(maintain chan bool) { fmt.Print("\nEMPTY\n") }
 
+	// TODO: this is just a tree traverse, I should automate this away. Commands might grow in length.
+	// AKA make a command tree
+	// Lower priority for now
 	if len(c.args) > 1 {
 		argcall := strings.TrimSpace(c.args[1])
-		maintainmethod, okmaintain := cmapmaintain[argcall]
+		route, okroute := cmaprouteutil[argcall]
 
-		if okmaintain {
-			returnlist[1] = func(maintain chan bool) { maintainmethod(maintain) }
+		if okroute {
+			furtherargcall := strings.TrimSpace(c.args[2])
+			furthercommand, okcommand := route[furtherargcall]
+
+			if okcommand {
+				returnlist[1] = func(maintain chan bool) { furthercommand(maintain) }
+			}
 		}
 	}
 
