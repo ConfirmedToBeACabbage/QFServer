@@ -67,13 +67,10 @@ func (c *Command) srvbroadcast(maintain chan bool) {
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
 		fmt.Printf("FAIL: You must run 'util server open' to first open the server")
-		return
 	} else {
 		server.ServerInitSingleton().BroadcastStateChange()
+		fmt.Printf("SERVER: We have begun broadcasting")
 	}
-
-	fmt.Printf("SERVER: We have begun broadcasting")
-
 }
 
 // SERVER: Open; This should open the server
@@ -144,14 +141,14 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	// AKA make a command tree
 	// Lower priority for now
 	if len(c.args) > 1 {
-		argcall := strings.TrimSpace(c.args[1])
+		argcall := strings.TrimSpace(c.args[0])
 		fmt.Printf("DEBUG: This is the first argcall %v\n", argcall)
 		route, okroute := cmaprouteutil[argcall]
 		fmt.Println("DEBUG: We have gotten past the route!")
 		fmt.Printf("DEBUG: %v\n", route)
 
 		if okroute {
-			furtherargcall := strings.TrimSpace(c.args[2])
+			furtherargcall := strings.TrimSpace(c.args[1])
 			fmt.Println("DEBUG: " + furtherargcall)
 			furthercommand, okcommand := route[furtherargcall]
 

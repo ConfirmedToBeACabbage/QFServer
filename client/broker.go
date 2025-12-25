@@ -79,7 +79,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	logger.Store("BROKER", "New Worker has been instantiated")
 	newworker.exit = make(chan bool, 1)
 	newworker.start = make(chan bool, 1)
-	newworker.maintain = make(chan bool)
+	newworker.maintain = make(chan bool, 1)
 	newworker.maintainstart = make(chan bool, 1)
 	fmt.Println("DEBUG: Setup the channels!")
 
@@ -177,6 +177,7 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodmaintain(worker.maintain)
 						worker.maintainstart <- false
+						worker.maintain <- true
 						readyforinput <- true
 					}
 				case maintaincheck := <-worker.maintain:

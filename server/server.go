@@ -192,8 +192,12 @@ func ServerInitSingleton() *ServerInstance {
 				"/":    serverinstance.handleping, // Handle pings
 				"/req": serverinstance.handlereq,  // Handle pools
 			},
-			srv:       &http.Server{},
-			broadcast: make(chan bool),
+			// Learning: I need to assign the handler here, otherwise we will get a panic when http tries to handle the requests
+			srv: &http.Server{
+				Addr:    ":8080",              // Set the address and port
+				Handler: http.DefaultServeMux, // Use the default ServeMux
+			},
+			broadcast: make(chan bool, 1),
 			buffer:    make([]byte, 1024),
 		}
 
@@ -203,6 +207,8 @@ func ServerInitSingleton() *ServerInstance {
 		hostget, errhost := os.Hostname()
 		if errhost != nil {
 			instance.clienthostname = hostget
+		} else {
+			fmt.Println("DEBUG: Error in getting hostname!")
 		}
 
 		// Setup the handlers
@@ -210,27 +216,40 @@ func ServerInitSingleton() *ServerInstance {
 			http.HandleFunc(i, v)
 		}
 
+		fmt.Println("DEBUG: Setup the handlers!")
+
 		// Setup server configuration
 		instance.srv.IdleTimeout = time.Millisecond * 5
 		instance.srv.MaxHeaderBytes = 1024
 
 		// Learnings: The handlers here are specifically talking bout the app.routes() handler. It's sort of middle-ware.
 		// The http.HandleFunc simple adds to the routes. The server would speak to that then. That's why it's not in the same struct
-		err := http.ListenAndServe(":8080", nil)
+		// Listen and server is a blocking thing too. Since it runs in the sync.once it will block the initialization process indefinitely preventing
+		// The rest of the program from running. Well technically it's just blocking the goroutine but still the same issue.
 
-		if err != nil {
-			fmt.Println("Error in starting the server", err)
-		}
+		go func() {
+			fmt.Println("DEBUG: Starting the http ")
+			err := http.ListenAndServe(":8080", nil)
+			if err != nil {
+				fmt.Println("Error in starting the server", err)
+			}
+		}()
+
+		fmt.Println("DEBUG: Server has started! You can try letting it broadcast now")
 	})
 
 	return serverinstance
 }
 
 // The server runner handling broadcast and normal connections
-func ServerRun(exit chan bool) {
+func ServerRun(maintain chan bool) {
+
+	fmt.Println("DEBUG: Starting server!")
 
 	// Get the singleton and use it
 	instance := ServerInitSingleton()
+
+	fmt.Println("DEBUG: Server has started!")
 
 	// Context
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -243,12 +262,10 @@ func ServerRun(exit chan bool) {
 			if broadcastsignal {
 				instance.ListenBroadcast()
 				instance.SendBroadcast()
-			} else {
-				instance.buffer = make([]byte, 0)
 			}
-		case exitsignal := <-exit:
-			if exitsignal {
-				close(exit)
+		case maintainsignal := <-maintain:
+			if !maintainsignal {
+				close(maintain)
 				close(instance.broadcast)
 
 				// Shutdown the server
