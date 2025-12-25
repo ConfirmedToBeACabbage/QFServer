@@ -146,9 +146,12 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	if len(c.args) > 1 {
 		argcall := strings.TrimSpace(c.args[1])
 		route, okroute := cmaprouteutil[argcall]
+		fmt.Println("DEBUG: We have gotten past the route!")
+		fmt.Printf("%v", route)
 
 		if okroute {
 			furtherargcall := strings.TrimSpace(c.args[2])
+			fmt.Println("DEBUG: " + furtherargcall)
 			furthercommand, okcommand := route[furtherargcall]
 
 			if okcommand {
