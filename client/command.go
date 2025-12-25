@@ -145,9 +145,10 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	// Lower priority for now
 	if len(c.args) > 1 {
 		argcall := strings.TrimSpace(c.args[1])
+		fmt.Printf("DEBUG: This is the first argcall %v\n", argcall)
 		route, okroute := cmaprouteutil[argcall]
 		fmt.Println("DEBUG: We have gotten past the route!")
-		fmt.Printf("%v", route)
+		fmt.Printf("DEBUG: %v\n", route)
 
 		if okroute {
 			furtherargcall := strings.TrimSpace(c.args[2])
