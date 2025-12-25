@@ -42,20 +42,17 @@ func (c *Command) inbox(exit chan bool) {
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
 	fmt.Println("Inbox!")
-	exit <- true
 }
 
 func (c *Command) draft(exit chan bool) {
 	// This is where we would have a pool of known nodes on the network.
 	fmt.Println("Exit!")
-	exit <- true
 }
 
 func (c *Command) util(exit chan bool) {
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
 	fmt.Println("Utility!")
-	exit <- true
 }
 
 // SERVER ARGS
@@ -76,15 +73,15 @@ func (c *Command) srvbroadcast(maintain chan bool) {
 // SERVER: Open; This should open the server
 func (c *Command) srvopen(maintain chan bool) {
 
-	fmt.Printf("SERVER: Beginning the server!")
+	fmt.Println("SERVER: In the command method to begin server!")
 
 	// Init the server
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
-		go server.ServerRun(maintain) // Goroutine
+		go server.ServerRun(maintain)
 	}
 
-	fmt.Printf("SERVER: The server has now begun running and is open")
+	fmt.Println("SERVER: The command method for server opening has finished!")
 
 }
 
@@ -95,8 +92,8 @@ func (c *Command) srvpool(maintain chan bool) {
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
 		fmt.Printf("FAIL: You must run 'util server open' to first open the server")
-		return
 	} else {
+		fmt.Println("Showing the pool!")
 		poollist := server.ServerInitSingleton().GetPingPool()
 
 		fmt.Println("Address | Host")
@@ -105,6 +102,7 @@ func (c *Command) srvpool(maintain chan bool) {
 		}
 	}
 
+	maintain <- false
 }
 
 // Main redirect method

@@ -90,6 +90,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	// it will be an unbuffered channel.
 	// What we can do is buffer it above by doing make(chan bool, 1)
 	newworker.exit <- false
+	newworker.maintain <- true
 
 	logger.Store("BROKER", "Worker channel is setup")
 	// The new worker has the method sig assigned while also passing the exit channel. Which it holds in its own structure too.
@@ -177,7 +178,6 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodmaintain(worker.maintain)
 						worker.maintainstart <- false
-						worker.maintain <- true
 						readyforinput <- true
 					}
 				case maintaincheck := <-worker.maintain:

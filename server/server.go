@@ -183,7 +183,9 @@ func CheckServerAlive() bool {
 // The init of the server with once.do for singelton
 func ServerInitSingleton() *ServerInstance {
 	once.Do(func() {
-		instance := &ServerInstance{
+
+		// LEARNING: THIS INITIALIZES AND SETS, WE DONT NEED A LOCAL VARIABLE WE JUST NEED TO UPDATE THE GLOBAL VARIABLE
+		serverinstance = &ServerInstance{
 			pingpool: make(map[string]string),
 			reqpool:  make(map[string]*http.Request),
 			pingopen: false,
@@ -202,40 +204,29 @@ func ServerInitSingleton() *ServerInstance {
 		}
 
 		// Setup
-		instance.broadcast <- false
+		serverinstance.broadcast <- false
 
 		hostget, errhost := os.Hostname()
 		if errhost != nil {
-			instance.clienthostname = hostget
+			serverinstance.clienthostname = hostget
 		} else {
 			fmt.Println("DEBUG: Error in getting hostname!")
 		}
 
 		// Setup the handlers
-		for i, v := range instance.handlers {
+		// Learnings: The handlers here are specifically talking bout the app.routes() handler. It's sort of middle-ware.
+		// The http.HandleFunc simple adds to the routes. The server would speak to that then. That's why it's not in the same struct
+		// Listen and server is a blocking thing too. Since it runs in the sync.once it will block the initialization process indefinitely preventing
+		// The rest of the program from running. Well technically it's just blocking the goroutine but still the same issue.
+		for i, v := range serverinstance.handlers {
 			http.HandleFunc(i, v)
 		}
 
 		fmt.Println("DEBUG: Setup the handlers!")
 
 		// Setup server configuration
-		instance.srv.IdleTimeout = time.Millisecond * 5
-		instance.srv.MaxHeaderBytes = 1024
-
-		// Learnings: The handlers here are specifically talking bout the app.routes() handler. It's sort of middle-ware.
-		// The http.HandleFunc simple adds to the routes. The server would speak to that then. That's why it's not in the same struct
-		// Listen and server is a blocking thing too. Since it runs in the sync.once it will block the initialization process indefinitely preventing
-		// The rest of the program from running. Well technically it's just blocking the goroutine but still the same issue.
-
-		go func() {
-			fmt.Println("DEBUG: Starting the http ")
-			err := http.ListenAndServe(":8080", nil)
-			if err != nil {
-				fmt.Println("Error in starting the server", err)
-			}
-		}()
-
-		fmt.Println("DEBUG: Server has started! You can try letting it broadcast now")
+		serverinstance.srv.IdleTimeout = time.Millisecond * 5
+		serverinstance.srv.MaxHeaderBytes = 1024
 	})
 
 	return serverinstance
@@ -244,10 +235,30 @@ func ServerInitSingleton() *ServerInstance {
 // The server runner handling broadcast and normal connections
 func ServerRun(maintain chan bool) {
 
-	fmt.Println("DEBUG: Starting server!")
+	fmt.Printf("DEBUG: Starting server! Maintain is %v\n", <-maintain)
 
 	// Get the singleton and use it
 	instance := ServerInitSingleton()
+
+	/* Learning!
+	signal 0xc0000005: This is a Windows-specific error indicating an access violation (attempting to access memory that is not valid).
+	addr=0x28: This is the memory address that the program tried to access, which is invalid.
+	pc=0x7ff7aa2eb870: This is the program counter (instruction pointer) at the time of the crash.
+	goroutine 82: The crash occurred in the ServerRun function, which was called in a goroutine.
+	*/
+	if instance == nil {
+		fmt.Println("DEBUG: Failed to start server! Setting the maintain to be false")
+		maintain <- false
+		return
+	}
+
+	go func() {
+		fmt.Printf("DEBUG: Starting the http, instance %v\n", instance)
+		err := instance.srv.ListenAndServe() // Not http listen and serve, we have our own server
+		if err == nil {
+			fmt.Println("Error in starting the server", err)
+		}
+	}()
 
 	fmt.Println("DEBUG: Server has started!")
 
@@ -265,13 +276,15 @@ func ServerRun(maintain chan bool) {
 			}
 		case maintainsignal := <-maintain:
 			if !maintainsignal {
-				close(maintain)
+				// LEARNING: We are closing this maintain channel a couple times over. Not entirely sure why yet, but it causes a panic.
 				close(instance.broadcast)
 
 				// Shutdown the server
 				if err := instance.srv.Shutdown(ctx); err != nil {
 					log.Fatalf("Server Shutdown Failed:%+v", err)
 				}
+
+				fmt.Println("DEBUG: Server has been stopped")
 
 				return
 			}
