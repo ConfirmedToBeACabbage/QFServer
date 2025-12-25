@@ -118,6 +118,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	if duplicate {
 		w.error = true
 		w.message = "ERROR: Broker cannot add duplicate workers"
+		fmt.Println("DEBUG: We have a duplicate worker name" + newworker.name)
 		return w.error
 	} else {
 
