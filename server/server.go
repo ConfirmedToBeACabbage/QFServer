@@ -258,6 +258,8 @@ func ServerRun(exit chan bool) {
 
 				return
 			}
+		default:
+			time.Sleep(time.Second * 2)
 		}
 	}
 }

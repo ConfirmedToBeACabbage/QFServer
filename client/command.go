@@ -79,10 +79,12 @@ func (c *Command) srvbroadcast(maintain chan bool) {
 // SERVER: Open; This should open the server
 func (c *Command) srvopen(maintain chan bool) {
 
+	fmt.Printf("SERVER: Beginning the server!")
+
 	// Init the server
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
-		server.ServerRun(maintain)
+		go server.ServerRun(maintain) // Goroutine
 	}
 
 	fmt.Printf("SERVER: The server has now begun running and is open")
@@ -161,6 +163,8 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 		returnlist[0] = func(exit chan bool) { startmethod(exit) }
 	}
 
+	fmt.Println("Got all the commands and stuff!")
+
 	return returnlist[0], returnlist[1]
 }
 
@@ -188,6 +192,7 @@ func Parse(input string) *Command {
 	}
 
 	for i := range len(args) {
+		fmt.Println(i)
 		if i >= 1 {
 			c.args = append(c.args, args[i])
 		}

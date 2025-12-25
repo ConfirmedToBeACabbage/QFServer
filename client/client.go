@@ -62,7 +62,11 @@ func ClientLoop() {
 
 					// Redirect with the command
 					if !inputparse.giveerror {
+						fmt.Println("DEBUG: Lets begin configuration!")
+
 						ok := br.configureworker(inputparse)
+
+						fmt.Println("DEBUG: We have configured!")
 
 						if ok {
 							logger.Store("CLIENT", "The worker has not been made by the broker"+br.message)

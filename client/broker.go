@@ -79,23 +79,27 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	logger.Store("BROKER", "New Worker has been instantiated")
 	newworker.exit = make(chan bool, 1)
 	newworker.start = make(chan bool, 1)
-	newworker.maintain = make(chan bool, 1)
+	newworker.maintain = make(chan bool)
 	newworker.maintainstart = make(chan bool, 1)
-	newworker.exit <- false
+	fmt.Println("DEBUG: Setup the channels!")
 
 	logger.Store("BROKER", "Worker has a channel created")
 
 	// Learning: This below would cause a freeze if unbuffered channel
-	newworker.exit <- false
 	// Channels in go require there to be a sender and receiver. So because there is no receiver,
 	// it will be an unbuffered channel.
 	// What we can do is buffer it above by doing make(chan bool, 1)
+	newworker.exit <- false
 
 	logger.Store("BROKER", "Worker channel is setup")
 	// The new worker has the method sig assigned while also passing the exit channel. Which it holds in its own structure too.
+	fmt.Println("DEBUG: Starting the redirect")
+
 	start, maintain := c.redirect(newworker.exit, newworker.maintain)
 	newworker.cmethodsig = start
 	newworker.cmethodmaintain = maintain
+
+	fmt.Println("DEBUG: We have gotten past redirect")
 
 	logger.Store("BROKER", "Worker has method assigned")
 	newworker.name = c.command
@@ -105,6 +109,8 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	newworker.setStatus("STATUS: Configuring new worker")
 
 	logger.Store("BROKER", "We have completed a new worker configuration")
+
+	fmt.Println("DEBUG: We have done the configuration!")
 
 	// Check for duplicate
 	_, duplicate := w.wbrokerlist[newworker.name]
@@ -166,27 +172,28 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 					}
 				case maintainworker := <-worker.maintainstart:
 					if maintainworker {
+						fmt.Println("DEBUG: We're starting the server")
 						worker.setStatus("STATUS: Beginning the maintain goroutine")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodmaintain(worker.maintain)
 						worker.maintainstart <- false
+						readyforinput <- true
 					}
 				case maintaincheck := <-worker.maintain:
 					if !maintaincheck {
 						worker.setStatus("STATUS: Turning off our maintenance")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
-						close(worker.maintain)
-						close(worker.maintainstart)
 						worker.exit <- true
 					}
 				case exitworker := <-worker.exit: // Our delete channel for the worker
 					if exitworker {
 						worker.setStatus("STATUS: Exiting the worker!")
-						delete(w.wbrokerlist, worker.name) // Deleting from the list
-
 						// Closing the channels used in the worker
 						close(worker.exit)
 						close(worker.start)
+						close(worker.maintain)
+						close(worker.maintainstart)
+						delete(w.wbrokerlist, worker.name) // Deleting from the list
 
 						// Ready for next input (It has been completed)
 						readyforinput <- true
