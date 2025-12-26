@@ -112,7 +112,7 @@ func (c *Command) srvpool(maintain chan bool) {
 func (c *Command) srvcheckalive(maintain chan bool) {
 	serveractive := server.CheckServerAlive()
 
-	fmt.Printf("\nSERVER ACTIVE STATUS: %b\n", serveractive)
+	fmt.Printf("\nSERVER ACTIVE STATUS: %v\n", serveractive)
 
 	maintain <- false
 }
