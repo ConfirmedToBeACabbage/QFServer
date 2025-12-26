@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/QFServer/log"
 )
 
 // The server struct
@@ -199,6 +200,8 @@ func CheckServerAlive() bool {
 // The init of the server with once.do for singelton
 func ServerInitSingleton() *ServerInstance {
 
+	logger := log.GetInstance()
+
 	once.Do(func() {
 
 		// LEARNING: THIS INITIALIZES AND SETS, WE DONT NEED A LOCAL VARIABLE WE JUST NEED TO UPDATE THE GLOBAL VARIABLE
@@ -227,7 +230,7 @@ func ServerInitSingleton() *ServerInstance {
 		if errhost != nil {
 			serverinstance.clienthostname = hostget
 		} else {
-			fmt.Println("DEBUG: Error in getting hostname!")
+			logger.Debug("DEBUG", "Error in getting hostname!")
 		}
 
 		// Setup the handlers
@@ -239,7 +242,7 @@ func ServerInitSingleton() *ServerInstance {
 			http.HandleFunc(i, v)
 		}
 
-		fmt.Println("DEBUG: Setup the handlers!")
+		logger.Debug("DEBUG", "Setup the handlers!")
 
 		// Setup server configuration
 		serverinstance.srv.IdleTimeout = time.Millisecond * 5
@@ -259,6 +262,8 @@ func ServerRun(maintain chan bool) {
 
 	instance := serverinstance
 
+	logger := log.GetInstance()
+
 	/* Learning!
 	signal 0xc0000005: This is a Windows-specific error indicating an access violation (attempting to access memory that is not valid).
 	addr=0x28: This is the memory address that the program tried to access, which is invalid.
@@ -266,20 +271,20 @@ func ServerRun(maintain chan bool) {
 	goroutine 82: The crash occurred in the ServerRun function, which was called in a goroutine.
 	*/
 	if instance == nil {
-		fmt.Println("DEBUG: Failed to start server! Setting the maintain to be false")
+		logger.Debug("DEBUG", "Failed to start server! Setting the maintain to be false")
 		maintain <- false
 		return
 	}
 
 	go func() {
-		fmt.Printf("DEBUG: Starting the http, instance %v\n", instance)
+		logger.Debug("DEBUG", fmt.Sprintf("Starting the http, instance %v", instance))
 		err := instance.srv.ListenAndServe() // Not http listen and serve, we have our own server
 		if err == nil {
 			fmt.Println("Error in starting the server", err)
 		}
 	}()
 
-	fmt.Println("DEBUG: Server has started!")
+	logger.Debug("DEBUG", "Server has started!")
 
 	// Context
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -300,10 +305,10 @@ func ServerRun(maintain chan bool) {
 
 				// Shutdown the server
 				if err := instance.srv.Shutdown(ctx); err != nil {
-					log.Fatalf("Server Shutdown Failed:%+v", err)
+					logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
 				}
 
-				fmt.Println("DEBUG: Server has been stopped")
+				logger.Debug("DEBUG", "Server has been stopped")
 
 				return
 			}

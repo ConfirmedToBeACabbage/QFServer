@@ -17,18 +17,19 @@ import (
 
 func ClientLoop() {
 
-	// Logger
+	// Ready for input channel
+	readyforinput := make(chan bool, 1)
+	readyforinput <- true
+
+	// Logger (We're passing the input channel here)
 	logger := log.GetInstance()
+	logger.BeginDebugLogger(readyforinput)
 
 	// Reader
 	reader := bufio.NewReader(os.Stdin)
 
 	// Quit channel
 	exitclient := make(chan bool, 1)
-
-	// Ready for input channel
-	readyforinput := make(chan bool, 1)
-	readyforinput <- true
 
 	// Give us the broker
 	br := InitBroker(readyforinput)
@@ -62,15 +63,15 @@ func ClientLoop() {
 
 					// Redirect with the command
 					if !inputparse.giveerror {
-						fmt.Println("DEBUG: Lets begin configuration!")
+						logger.Debug("DEBUG", "Lets begin configuration!")
 						processwait := make(chan bool)
 						errorreceive := br.configureworker(inputparse, processwait)
-						fmt.Println("DEBUG: We have configured!")
+						logger.Debug("DEBUG", "We have configured!")
 
 						if !errorreceive {
 							logger.Store("CLIENT", "The worker has not been made by the broker"+br.message)
 						} else {
-							fmt.Println("DEBUG: Error in creating the worker!")
+							logger.Debug("DEBUG", "Error in creating the worker!")
 							readyforinput <- true
 						}
 

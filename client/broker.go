@@ -81,7 +81,7 @@ func (w *wbrokercontroller) configureworker(c *Command, readyprocess chan bool) 
 	newworker.start = make(chan bool, 1)
 	newworker.maintain = make(chan bool, 1)
 	newworker.maintainstart = make(chan bool, 1)
-	fmt.Println("DEBUG: Setup the channels!")
+	logger.Debug("DEBUG", "Setup the channels!")
 
 	logger.Store("BROKER", "Worker has a channel created")
 
@@ -94,19 +94,19 @@ func (w *wbrokercontroller) configureworker(c *Command, readyprocess chan bool) 
 
 	logger.Store("BROKER", "Worker channel is setup")
 	// The new worker has the method sig assigned while also passing the exit channel. Which it holds in its own structure too.
-	fmt.Println("DEBUG: Starting the redirect")
+	logger.Debug("DEBUG", "Starting the redirect")
 
 	start, maintain := c.redirect(newworker.exit, newworker.maintain)
 	newworker.cmethodsig = start
 	newworker.cmethodmaintain = maintain
 
-	fmt.Println("DEBUG: We have gotten past redirect")
+	logger.Debug("DEBUG", "We have gotten past redirect")
 
 	logger.Store("BROKER", "Worker has method assigned")
 	namebuilder := c.command // A new name builder which just uses the whole name
 	for i := range c.args {
 		namebuilder += c.args[i]
-		fmt.Println("DEBUG: The name we're building! " + namebuilder)
+		logger.Debug("DEBUG", "The name we're building! "+namebuilder)
 	}
 	newworker.name = namebuilder
 
@@ -115,14 +115,14 @@ func (w *wbrokercontroller) configureworker(c *Command, readyprocess chan bool) 
 	newworker.setStatus("STATUS: Configuring new worker")
 
 	logger.Store("BROKER", "We have completed a new worker configuration")
-	fmt.Println("DEBUG: We have done the configuration!")
+	logger.Debug("DEBUG", "We have done the configuration!")
 
 	// Check for duplicate
 	_, duplicate := w.wbrokerlist[newworker.name]
 	if duplicate {
 		w.error = true
 		w.message = "ERROR: Broker cannot add duplicate workers"
-		fmt.Println("DEBUG: We have a duplicate worker name" + newworker.name)
+		logger.Debug("DEBUG", "We have a duplicate worker name"+newworker.name)
 		return w.error
 	} else {
 
@@ -175,6 +175,7 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 				select {
 				case startworker := <-worker.start:
 					if startworker {
+						readyforinput <- false
 						worker.setStatus("STATUS: Beginning the goroutine")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodsig(worker.exit)
@@ -182,12 +183,11 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 					}
 				case maintainworker := <-worker.maintainstart:
 					if maintainworker {
-						fmt.Println("DEBUG: We're starting the server")
+						logger.Debug("DEBUG", "We're starting the server")
 						worker.setStatus("STATUS: Beginning the maintain goroutine")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodmaintain(worker.maintain)
 						worker.maintainstart <- false
-						readyforinput <- true
 					}
 				case maintaincheck := <-worker.maintain:
 					if !maintaincheck {
@@ -204,11 +204,9 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						close(worker.maintain)
 						close(worker.maintainstart)
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
-
-						// Ready for next input (It has been completed)
-						readyforinput <- true
 					}
 				default:
+					readyforinput <- true
 					time.Sleep(time.Second * 2) // Add a small delay
 				}
 			}

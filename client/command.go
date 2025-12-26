@@ -83,7 +83,7 @@ func (c *Command) srvbroadcast(maintain chan bool) {
 		fmt.Printf("FAIL: You must run 'util server open' to first open the server")
 	} else {
 		server.ServerInitSingleton().BroadcastStateChange()
-		fmt.Printf("SERVER: We have begun broadcasting")
+		fmt.Printf("\nSERVER: We have begun broadcasting\n")
 	}
 }
 
@@ -109,7 +109,7 @@ func (c *Command) srvpool(maintain chan bool) {
 	// Check server
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
-		fmt.Printf("FAIL: You must run 'util server open' to first open the server")
+		fmt.Printf("\nFAIL: You must run 'util server open' to first open the server\n")
 	} else {
 		fmt.Println("Showing the pool!")
 		poollist := server.ServerInitSingleton().GetPingPool()
@@ -130,7 +130,7 @@ func (c *Command) srvcheckalive(maintain chan bool) {
 
 	serveractive := server.CheckServerAlive()
 
-	fmt.Printf("SERVER ACTIVE STATUS: %b", serveractive)
+	fmt.Printf("\nSERVER ACTIVE STATUS: %b\n", serveractive)
 
 	maintain <- false
 }
@@ -140,7 +140,7 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// logger := log.GetInstance()
+	logger := log.GetInstance()
 
 	cmapstart := map[string]func(chan bool){
 		"help":  c.help,
@@ -175,12 +175,12 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 		argcall := strings.TrimSpace(c.args[0])
 		fmt.Printf("DEBUG: This is the first argcall %v\n", argcall)
 		route, okroute := cmaprouteutil[argcall]
-		fmt.Println("DEBUG: We have gotten past the route!")
-		fmt.Printf("DEBUG: %v\n", route)
+		logger.Debug("DEBUG", "We have gotten past the route!")
+		logger.Debug("DEBUG", fmt.Sprintf("%v\n", route))
 
 		if okroute {
 			furtherargcall := strings.TrimSpace(c.args[1])
-			fmt.Println("DEBUG: " + furtherargcall)
+			logger.Debug("DEBUG", ""+furtherargcall)
 			furthercommand, okcommand := route[furtherargcall]
 
 			if okcommand {
