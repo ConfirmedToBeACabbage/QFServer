@@ -178,7 +178,7 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						readyforinput <- false
 						worker.setStatus("STATUS: Beginning the goroutine")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
-						go worker.cmethodsig(worker.exit)
+						worker.cmethodsig(worker.exit)
 						worker.start <- false // To make sure we don't restart it
 					}
 				case maintainworker := <-worker.maintainstart:
@@ -186,17 +186,19 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						readyforinput <- false
 						worker.setStatus("STATUS: Beginning the maintain goroutine")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
-						go worker.cmethodmaintain(worker.maintain)
+						worker.cmethodmaintain(worker.maintain)
 						worker.maintainstart <- false
 					}
 				case maintaincheck := <-worker.maintain:
 					if !maintaincheck {
+						readyforinput <- false
 						worker.setStatus("STATUS: Turning off our maintenance")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						worker.exit <- true
 					}
 				case exitworker := <-worker.exit: // Our delete channel for the worker
 					if exitworker {
+						readyforinput <- false
 						worker.setStatus("STATUS: Exiting the worker!")
 						// Closing the channels used in the worker
 						close(worker.exit)

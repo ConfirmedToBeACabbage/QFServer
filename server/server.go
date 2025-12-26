@@ -24,8 +24,9 @@ type ServerInstance struct {
 	srv      *http.Server
 
 	// This is the UDP section
-	broadcast chan bool
-	buffer    []byte
+	broadcastswitch chan bool
+	broadcasting    chan bool
+	buffer          []byte
 
 	// Hostname + Address
 	clienthostname string
@@ -81,7 +82,7 @@ func (si *ServerInstance) sendbroadcast() {
 		defer con.Close()
 
 		// Learning: If i'm just looping over one channel I can do this
-		for broadcastsignal := range si.broadcast {
+		for broadcastsignal := range si.broadcasting {
 			if !broadcastsignal {
 				return
 			} else {
@@ -117,7 +118,7 @@ func (si *ServerInstance) listenbroadcast() {
 
 		si.buffer = make([]byte, 1024)
 
-		for broadcastsignal := range si.broadcast {
+		for broadcastsignal := range si.broadcasting {
 			if !broadcastsignal {
 				return
 			}
@@ -141,8 +142,6 @@ func (si *ServerInstance) listenbroadcast() {
 
 			fmt.Printf("Received response from %s: %s\n", addr.String(), string(si.buffer[:n]))
 		}
-
-		<-si.broadcast
 	}()
 }
 
@@ -152,12 +151,8 @@ func (si *ServerInstance) BroadcastStateChange() {
 	defer si.mu.Unlock()
 
 	select {
-	case broadcastsignal := <-si.broadcast:
-		if !broadcastsignal {
-			si.broadcast <- true
-		} else {
-			si.broadcast <- false
-		}
+	case broadcastswitch := <-si.broadcastswitch:
+		si.broadcasting <- broadcastswitch
 	default:
 		return
 	}
@@ -216,12 +211,14 @@ func ServerInitSingleton() *ServerInstance {
 				Addr:    ":8080",              // Set the address and port
 				Handler: http.DefaultServeMux, // Use the default ServeMux
 			},
-			broadcast: make(chan bool, 1),
-			buffer:    make([]byte, 1024),
+			broadcastswitch: make(chan bool, 1),
+			broadcasting:    make(chan bool, 1),
+			buffer:          make([]byte, 1024),
 		}
 
 		// Setup
-		serverinstance.broadcast <- false
+		serverinstance.broadcasting <- false
+		serverinstance.broadcastswitch <- false
 
 		hostget, errhost := os.Hostname()
 		if errhost != nil {
@@ -290,17 +287,23 @@ func ServerRun(maintain chan bool) {
 	// Server running loop
 	for {
 		select {
-		case broadcastsignal := <-instance.broadcast:
-			if broadcastsignal {
-				instance.listenbroadcast()
-				instance.sendbroadcast()
+		case broadcastswitch := <-instance.broadcastswitch:
+			if broadcastswitch {
+				for alreadybroadcasting := range instance.broadcasting {
+					if !alreadybroadcasting {
+						instance.listenbroadcast()
+						instance.sendbroadcast()
+						instance.broadcasting <- true
+					}
+				}
 			} else {
-
+				instance.broadcasting <- false
 			}
 		case maintainsignal := <-maintain:
 			if !maintainsignal {
 				// LEARNING: We are closing this maintain channel a couple times over. Not entirely sure why yet, but it causes a panic.
-				close(instance.broadcast)
+				close(instance.broadcastswitch)
+				close(instance.broadcasting)
 
 				// Shutdown the server
 				if err := instance.srv.Shutdown(ctx); err != nil {

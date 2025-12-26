@@ -62,9 +62,6 @@ func (c *Command) util(exit chan bool) {
 
 // SERVER: Listener; This would start the broadcast listener
 func (c *Command) srvbroadcast(maintain chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	// Check server
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
@@ -77,9 +74,6 @@ func (c *Command) srvbroadcast(maintain chan bool) {
 
 // SERVER: Open; This should open the server
 func (c *Command) srvopen(maintain chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	fmt.Println("SERVER: In the command method to begin server!")
 
 	// Init the server
