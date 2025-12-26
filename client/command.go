@@ -28,9 +28,6 @@ type Command struct {
 
 // Command methods signed by commandcontrol
 func (c *Command) help(exit chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
@@ -44,9 +41,6 @@ func (c *Command) help(exit chan bool) {
 }
 
 func (c *Command) inbox(exit chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
@@ -54,17 +48,11 @@ func (c *Command) inbox(exit chan bool) {
 }
 
 func (c *Command) draft(exit chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	// This is where we would have a pool of known nodes on the network.
 	fmt.Println("Exit!")
 }
 
 func (c *Command) util(exit chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
 	fmt.Println("Utility!")
