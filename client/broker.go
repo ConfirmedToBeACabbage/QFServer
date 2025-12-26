@@ -183,7 +183,7 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 					}
 				case maintainworker := <-worker.maintainstart:
 					if maintainworker {
-						logger.Debug("DEBUG", "We're starting the server")
+						readyforinput <- false
 						worker.setStatus("STATUS: Beginning the maintain goroutine")
 						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
 						go worker.cmethodmaintain(worker.maintain)
@@ -206,8 +206,8 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
 					}
 				default:
-					readyforinput <- true
 					time.Sleep(time.Second * 2) // Add a small delay
+					readyforinput <- true
 				}
 			}
 		}
