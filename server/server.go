@@ -67,10 +67,7 @@ func (si *ServerInstance) GetPingPool() map[string]string {
 }
 
 // Send an alive message
-func (si *ServerInstance) SendBroadcast() {
-	si.mu.Lock()
-	defer si.mu.Unlock()
-
+func (si *ServerInstance) sendbroadcast() {
 	go func() {
 		addr := net.UDPAddr{
 			Port: 12345,
@@ -84,8 +81,8 @@ func (si *ServerInstance) SendBroadcast() {
 		defer con.Close()
 
 		// Learning: If i'm just looping over one channel I can do this
-		for current := range si.broadcast {
-			if !current {
+		for broadcastsignal := range si.broadcast {
+			if !broadcastsignal {
 				return
 			} else {
 				message := []byte("[QFSERVER]ALIVEPING")
@@ -103,10 +100,7 @@ func (si *ServerInstance) SendBroadcast() {
 }
 
 // Listen for alive
-func (si *ServerInstance) ListenBroadcast() {
-	si.mu.Lock()
-	defer si.mu.Unlock()
-
+func (si *ServerInstance) listenbroadcast() {
 	go func() {
 		addr := net.UDPAddr{
 			Port: 12345,
@@ -123,7 +117,10 @@ func (si *ServerInstance) ListenBroadcast() {
 
 		si.buffer = make([]byte, 1024)
 
-		for {
+		for broadcastsignal := range si.broadcast {
+			if !broadcastsignal {
+				return
+			}
 			n, addr, err := con.ReadFromUDP(si.buffer)
 			if err != nil {
 				break
@@ -295,8 +292,10 @@ func ServerRun(maintain chan bool) {
 		select {
 		case broadcastsignal := <-instance.broadcast:
 			if broadcastsignal {
-				instance.ListenBroadcast()
-				instance.SendBroadcast()
+				instance.listenbroadcast()
+				instance.sendbroadcast()
+			} else {
+
 			}
 		case maintainsignal := <-maintain:
 			if !maintainsignal {

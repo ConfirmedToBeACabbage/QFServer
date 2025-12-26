@@ -10,7 +10,7 @@ import (
 // Function to call on the logs from these different ID's
 // Extra feat: Call on specific times
 //
-//	Set an output or something if needed
+// Set an output or something if needed
 type logMessage struct {
 	id            string
 	message       string
