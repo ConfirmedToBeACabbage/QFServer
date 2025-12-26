@@ -91,9 +91,6 @@ func (c *Command) srvopen(maintain chan bool) {
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
 func (c *Command) srvpool(maintain chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	// Check server
 	serveractive := server.CheckServerAlive()
 	if !serveractive {
@@ -113,9 +110,6 @@ func (c *Command) srvpool(maintain chan bool) {
 
 // Check if the server is alive
 func (c *Command) srvcheckalive(maintain chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	serveractive := server.CheckServerAlive()
 
 	fmt.Printf("\nSERVER ACTIVE STATUS: %b\n", serveractive)
