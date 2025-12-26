@@ -28,6 +28,9 @@ type ServerInstance struct {
 
 	// Hostname + Address
 	clienthostname string
+
+	// Mutex lock
+	mu sync.Mutex
 }
 
 // Functions to pool everything
@@ -64,6 +67,9 @@ func (si *ServerInstance) GetPingPool() map[string]string {
 
 // Send an alive message
 func (si *ServerInstance) SendBroadcast() {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+
 	go func() {
 		addr := net.UDPAddr{
 			Port: 12345,
@@ -97,6 +103,9 @@ func (si *ServerInstance) SendBroadcast() {
 
 // Listen for alive
 func (si *ServerInstance) ListenBroadcast() {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+
 	go func() {
 		addr := net.UDPAddr{
 			Port: 12345,
@@ -141,6 +150,9 @@ func (si *ServerInstance) ListenBroadcast() {
 
 // Changing server states
 func (si *ServerInstance) BroadcastStateChange() {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+
 	select {
 	case broadcastsignal := <-si.broadcast:
 		if !broadcastsignal {
@@ -155,12 +167,16 @@ func (si *ServerInstance) BroadcastStateChange() {
 
 // Open the server to be pinged
 func (si *ServerInstance) PingStateChange() bool {
+	si.mu.Lock()
+	defer si.mu.Unlock()
 	si.pingopen = !si.pingopen
 	return si.pingopen
 }
 
 // Open the server to be requested
 func (si *ServerInstance) ReqStateChange() bool {
+	si.mu.Lock()
+	defer si.mu.Unlock()
 	si.reqopen = !si.reqopen
 	return si.reqopen
 }
@@ -182,6 +198,7 @@ func CheckServerAlive() bool {
 
 // The init of the server with once.do for singelton
 func ServerInitSingleton() *ServerInstance {
+
 	once.Do(func() {
 
 		// LEARNING: THIS INITIALIZES AND SETS, WE DONT NEED A LOCAL VARIABLE WE JUST NEED TO UPDATE THE GLOBAL VARIABLE
@@ -235,10 +252,12 @@ func ServerInitSingleton() *ServerInstance {
 // The server runner handling broadcast and normal connections
 func ServerRun(maintain chan bool) {
 
-	fmt.Printf("DEBUG: Starting server! Maintain is %v\n", <-maintain)
+	fmt.Printf("DEBUG: Starting server!")
 
 	// Get the singleton and use it
-	instance := ServerInitSingleton()
+	ServerInitSingleton()
+
+	instance := serverinstance
 
 	/* Learning!
 	signal 0xc0000005: This is a Windows-specific error indicating an access violation (attempting to access memory that is not valid).

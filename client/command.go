@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/QFServer/log"
 	"github.com/QFServer/server"
@@ -21,10 +22,15 @@ type Command struct {
 	args      []string
 	message   string
 	giveerror bool
+
+	mu sync.Mutex
 }
 
 // Command methods signed by commandcontrol
 func (c *Command) help(exit chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
@@ -38,6 +44,9 @@ func (c *Command) help(exit chan bool) {
 }
 
 func (c *Command) inbox(exit chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
@@ -45,11 +54,17 @@ func (c *Command) inbox(exit chan bool) {
 }
 
 func (c *Command) draft(exit chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// This is where we would have a pool of known nodes on the network.
 	fmt.Println("Exit!")
 }
 
 func (c *Command) util(exit chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
 	fmt.Println("Utility!")
@@ -59,6 +74,8 @@ func (c *Command) util(exit chan bool) {
 
 // SERVER: Listener; This would start the broadcast listener
 func (c *Command) srvbroadcast(maintain chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Check server
 	serveractive := server.CheckServerAlive()
@@ -72,21 +89,22 @@ func (c *Command) srvbroadcast(maintain chan bool) {
 
 // SERVER: Open; This should open the server
 func (c *Command) srvopen(maintain chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	fmt.Println("SERVER: In the command method to begin server!")
 
 	// Init the server
-	serveractive := server.CheckServerAlive()
-	if !serveractive {
-		go server.ServerRun(maintain)
-	}
+	go server.ServerRun(maintain)
 
-	fmt.Println("SERVER: The command method for server opening has finished!")
+	fmt.Println("SERVER: Server goroutine has begun. It should be created soon!")
 
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
 func (c *Command) srvpool(maintain chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Check server
 	serveractive := server.CheckServerAlive()
@@ -105,8 +123,22 @@ func (c *Command) srvpool(maintain chan bool) {
 	maintain <- false
 }
 
+// Check if the server is alive
+func (c *Command) srvcheckalive(maintain chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	serveractive := server.CheckServerAlive()
+
+	fmt.Printf("SERVER ACTIVE STATUS: %b", serveractive)
+
+	maintain <- false
+}
+
 // Main redirect method
 func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool), func(chan bool)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// logger := log.GetInstance()
 
@@ -121,6 +153,7 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 		"broadcast": c.srvbroadcast, // Broadcast our client
 		"open":      c.srvopen,
 		"pool":      c.srvpool,
+		"alive":     c.srvcheckalive,
 	}
 
 	cmaprouteutil := map[string]map[string]func(chan bool){

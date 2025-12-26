@@ -68,7 +68,7 @@ func (w *wbrokercontroller) gracefulshutdown(shutdown chan bool) {
 
 // Add a worker
 // Learning: We need to make sure that we're not using a copy of wbrokercontroller but the direct reference
-func (w *wbrokercontroller) configureworker(c *Command) bool {
+func (w *wbrokercontroller) configureworker(c *Command, readyprocess chan bool) bool {
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -103,14 +103,18 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	fmt.Println("DEBUG: We have gotten past redirect")
 
 	logger.Store("BROKER", "Worker has method assigned")
-	newworker.name = c.command
+	namebuilder := c.command // A new name builder which just uses the whole name
+	for i := range c.args {
+		namebuilder += c.args[i]
+		fmt.Println("DEBUG: The name we're building! " + namebuilder)
+	}
+	newworker.name = namebuilder
 
 	logger.Store("BROKER", "Worker has name assigned")
 	newworker.status = "WORKER: Currently being configured"
 	newworker.setStatus("STATUS: Configuring new worker")
 
 	logger.Store("BROKER", "We have completed a new worker configuration")
-
 	fmt.Println("DEBUG: We have done the configuration!")
 
 	// Check for duplicate
@@ -124,11 +128,6 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 
 		logger.Store("BROKER", "Adding to the worker list")
 
-		// Adding the new worker to the broker controller list
-		// Learning: We have to actually initialize the map. It's nil right now, we will do that
-		// In the init portion of the init broker
-		w.wbrokerlist[newworker.name] = newworker
-
 		// Signal that the worker should start
 		newworker.start <- true
 		newworker.maintainstart <- true
@@ -138,6 +137,15 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 		logger.Store("BROKER", "All done! Error "+fmt.Sprint(w.error))
 
 		newworker.setStatus("[STATUS] Ready to init!")
+
+		go func() {
+
+			<-readyprocess
+			// Adding the new worker to the broker controller list
+			// Learning: We have to actually initialize the map. It's nil right now, we will do that
+			// In the init portion of the init broker
+			w.wbrokerlist[newworker.name] = newworker
+		}()
 	}
 
 	return w.error
@@ -201,11 +209,9 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						readyforinput <- true
 					}
 				default:
-					time.Sleep(time.Millisecond * 500) // Add a small delay
+					time.Sleep(time.Second * 2) // Add a small delay
 				}
 			}
-
-			logger.Store("BROKER", "Checking workers...")
 		}
 
 	}()

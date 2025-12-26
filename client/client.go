@@ -63,14 +63,19 @@ func ClientLoop() {
 					// Redirect with the command
 					if !inputparse.giveerror {
 						fmt.Println("DEBUG: Lets begin configuration!")
-
-						ok := br.configureworker(inputparse)
-
+						processwait := make(chan bool)
+						errorreceive := br.configureworker(inputparse, processwait)
 						fmt.Println("DEBUG: We have configured!")
 
-						if ok {
+						if !errorreceive {
 							logger.Store("CLIENT", "The worker has not been made by the broker"+br.message)
+						} else {
+							fmt.Println("DEBUG: Error in creating the worker!")
+							readyforinput <- true
 						}
+
+						processwait <- true
+						close(processwait)
 
 					} else {
 						fmt.Println(inputparse.message)
