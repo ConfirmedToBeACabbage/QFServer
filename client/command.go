@@ -63,6 +63,7 @@ func (c *Command) util(exit chan bool) {
 // SERVER: Listener; This would start the broadcast listener
 func (c *Command) srvbroadcast(maintain chan bool) {
 	server.ServerInitSingleton().BroadcastStateChange()
+	maintain <- false
 }
 
 // SERVER: Open; This should open the server
@@ -70,7 +71,6 @@ func (c *Command) srvopen(maintain chan bool) {
 	fmt.Println("SERVER: In the command method to begin server!")
 	server.ServerRun(maintain)
 	fmt.Println("SERVER: Server goroutine has begun. It should be created soon!")
-
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to

@@ -180,7 +180,6 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						logger.Debug("BROKER", worker.status)
 						worker.cmethodsig(worker.exit)
 						worker.start <- false // To make sure we don't restart it
-						readyforinput <- true
 					}
 				case maintainworker := <-worker.maintainstart:
 					if maintainworker {
@@ -189,7 +188,6 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						logger.Debug("BROKER", worker.status)
 						worker.cmethodmaintain(worker.maintain)
 						worker.maintainstart <- false
-						readyforinput <- true
 					}
 				case maintaincheck := <-worker.maintain:
 					if !maintaincheck {
@@ -197,7 +195,6 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						worker.setStatus("STATUS: Exit start method for " + worker.name)
 						logger.Debug("BROKER", worker.status)
 						worker.exit <- true
-						readyforinput <- true
 					}
 				case exitworker := <-worker.exit: // Our delete channel for the worker
 					if exitworker {
@@ -210,10 +207,10 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						close(worker.maintain)
 						close(worker.maintainstart)
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
-						readyforinput <- true
 					}
 				default:
-					time.Sleep(time.Second * 1) // Add a small delay
+					time.Sleep(time.Second * 3) // Add a small delay
+					readyforinput <- true
 				}
 			}
 		}
