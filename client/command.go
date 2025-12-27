@@ -27,7 +27,7 @@ type Command struct {
 }
 
 // Command methods signed by commandcontrol
-func (c *Command) help(exit chan bool) {
+func (c *Command) help() {
 	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
@@ -36,23 +36,21 @@ func (c *Command) help(exit chan bool) {
 		"      - server open: This would start the server and get it ready for scanning",
 		"      - server broadcast: This would start broadcasting your server. Other node pools can pick it up and add it on LAN",
 		"Quit: This will quit the program\n")
-
-	exit <- true
 }
 
-func (c *Command) inbox(exit chan bool) {
+func (c *Command) inbox() {
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
 	fmt.Println("Inbox!")
 }
 
-func (c *Command) draft(exit chan bool) {
+func (c *Command) draft() {
 	// This is where we would have a pool of known nodes on the network.
 	fmt.Println("Exit!")
 }
 
-func (c *Command) util(exit chan bool) {
+func (c *Command) util() {
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
 	fmt.Println("Utility!")
@@ -61,20 +59,26 @@ func (c *Command) util(exit chan bool) {
 // SERVER ARGS
 
 // SERVER: Listener; This would start the broadcast listener
-func (c *Command) srvbroadcast(maintain chan bool) {
-	server.ServerInitSingleton().BroadcastStateChange()
-	maintain <- false
+func (c *Command) srvbroadcast(alive chan bool) {
+	<-alive // Wait for alive
+
+	fmt.Println("Changing the server state for broadcasting!")
+	server.BroadcastStateChange()
+	alive <- false
 }
 
 // SERVER: Open; This should open the server
-func (c *Command) srvopen(maintain chan bool) {
+func (c *Command) srvopen(alive chan bool) {
+	<-alive // Wait for alive
+
 	fmt.Println("SERVER: In the command method to begin server!")
-	server.ServerRun(maintain)
+	server.ServerRun(alive)
 	fmt.Println("SERVER: Server goroutine has begun. It should be created soon!")
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
-func (c *Command) srvpool(maintain chan bool) {
+func (c *Command) srvpool(alive chan bool) {
+	<-alive // Wait for alive
 
 	fmt.Println("Showing the pool!")
 	poollist := server.ServerInitSingleton().GetPingPool()
@@ -84,26 +88,27 @@ func (c *Command) srvpool(maintain chan bool) {
 		fmt.Println(i + " | " + v)
 	}
 
-	maintain <- false
+	alive <- false
 }
 
 // Check if the server is alive
-func (c *Command) srvcheckalive(maintain chan bool) {
-	serveractive := server.CheckServerAlive()
+func (c *Command) srvcheckalive(alive chan bool) {
+	<-alive // Wait for alive
 
+	serveractive := server.CheckServerAlive()
 	fmt.Printf("\nSERVER ACTIVE STATUS: %v\n", serveractive)
 
-	maintain <- false
+	alive <- false
 }
 
 // Main redirect method
-func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool), func(chan bool)) {
+func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	logger := log.GetInstance()
 
-	cmapstart := map[string]func(chan bool){
+	cmapstart := map[string]func(){
 		"help":  c.help,
 		"inbox": c.inbox,
 		"draft": c.draft,
@@ -126,8 +131,8 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 
 	// Setting up the return list
 	returnlist := make([]func(controller chan bool), 2)
-	returnlist[0] = func(exit chan bool) { fmt.Print("\nEMPTY\n") }
-	returnlist[1] = func(maintain chan bool) { fmt.Print("\nEMPTY\n") }
+	returnlist[0] = func(alive chan bool) { fmt.Print("\nEMPTY\n") }
+	returnlist[1] = func(alive chan bool) { fmt.Print("\nEMPTY\n") }
 
 	// TODO: this is just a tree traverse, I should automate this away. Commands might grow in length.
 	// AKA make a command tree
@@ -145,7 +150,7 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 			furthercommand, okcommand := route[furtherargcall]
 
 			if okcommand {
-				returnlist[1] = func(maintain chan bool) { furthercommand(maintain) }
+				returnlist[1] = func(alive chan bool) { furthercommand(alive) }
 			}
 		}
 	}
@@ -153,7 +158,7 @@ func (c *Command) redirect(exit chan bool, maintain chan bool) (func(chan bool),
 	startmethod, okstart := cmapstart[methodcall]
 
 	if okstart {
-		returnlist[0] = func(exit chan bool) { startmethod(exit) }
+		returnlist[0] = func(alive chan bool) { startmethod() }
 	}
 
 	fmt.Println("Got all the commands and stuff!")

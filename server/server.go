@@ -24,9 +24,8 @@ type ServerInstance struct {
 	srv      *http.Server
 
 	// This is the UDP section
-	broadcastswitch chan bool
-	broadcasting    chan bool
-	buffer          []byte
+	broadcasting bool
+	buffer       []byte
 
 	// Hostname + Address
 	clienthostname string
@@ -85,20 +84,16 @@ func (si *ServerInstance) sendbroadcast() {
 		defer con.Close()
 
 		// Learning: If i'm just looping over one channel I can do this
-		for broadcastsignal := range si.broadcasting {
-			if !broadcastsignal {
-				return
-			} else {
-				message := []byte("[QFSERVER]ALIVEPING")
-				_, err = con.Write(message)
+		for si.broadcasting {
+			message := []byte("[QFSERVER]ALIVEPING")
+			_, err = con.Write(message)
 
-				if err == nil {
-					fmt.Printf("Error: %v", err)
-				}
-
-				time.Sleep(time.Second * 2)
-				fmt.Println("Sending a broadcast")
+			if err == nil {
+				fmt.Printf("Error: %v", err)
 			}
+
+			time.Sleep(time.Second * 2)
+			fmt.Println("Sending a broadcast")
 		}
 	}()
 }
@@ -121,10 +116,8 @@ func (si *ServerInstance) listenbroadcast() {
 
 		si.buffer = make([]byte, 1024)
 
-		for broadcastsignal := range si.broadcasting {
-			if !broadcastsignal {
-				return
-			}
+		for si.broadcasting {
+
 			n, addr, err := con.ReadFromUDP(si.buffer)
 			if err != nil {
 				break
@@ -149,17 +142,16 @@ func (si *ServerInstance) listenbroadcast() {
 }
 
 // Changing server states
-func (si *ServerInstance) BroadcastStateChange() {
-	si.mu.Lock()
-	defer si.mu.Unlock()
+func BroadcastStateChange() {
+	fmt.Println("SERVER: Attempting to change the broadcast switch")
+
 	if !CheckServerAlive() {
 		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
 		return
 	}
-	si.broadcastswitch <- !(<-si.broadcastswitch)
-	for broadcastswitch := range si.broadcastswitch {
-		si.broadcasting <- broadcastswitch
-	}
+
+	fmt.Println("SERVER: Instance exists!")
+	serverinstance.broadcasting = !serverinstance.broadcasting
 }
 
 // Open the server to be pinged
@@ -190,6 +182,7 @@ var (
 
 // Simple check alive for the server instance
 func CheckServerAlive() bool {
+	fmt.Println("SERVER: Checking the instance!")
 	if serverinstance == nil {
 		return false
 	} else {
@@ -219,14 +212,9 @@ func ServerInitSingleton() *ServerInstance {
 				Addr:    ":8080",              // Set the address and port
 				Handler: http.DefaultServeMux, // Use the default ServeMux
 			},
-			broadcastswitch: make(chan bool, 1),
-			broadcasting:    make(chan bool, 1),
-			buffer:          make([]byte, 1024),
+			broadcasting: false,
+			buffer:       make([]byte, 1024),
 		}
-
-		// Setup
-		serverinstance.broadcasting <- false
-		serverinstance.broadcastswitch <- false
 
 		hostget, errhost := os.Hostname()
 		if errhost != nil {
@@ -255,7 +243,7 @@ func ServerInitSingleton() *ServerInstance {
 }
 
 // The server runner handling broadcast and normal connections
-func ServerRun(maintain chan bool) {
+func ServerRun(alive chan bool) {
 
 	fmt.Printf("DEBUG: Starting server!")
 
@@ -274,7 +262,7 @@ func ServerRun(maintain chan bool) {
 	*/
 	if instance == nil {
 		logger.Debug("DEBUG", "Failed to start server! Setting the maintain to be false")
-		maintain <- false
+		alive <- false
 		return
 	}
 
@@ -296,23 +284,8 @@ func ServerRun(maintain chan bool) {
 
 		for {
 			select {
-			case broadcastswitch := <-instance.broadcastswitch:
-				if broadcastswitch {
-					for alreadybroadcasting := range instance.broadcasting {
-						if !alreadybroadcasting {
-							instance.listenbroadcast()
-							instance.sendbroadcast()
-							instance.broadcasting <- true
-						}
-					}
-				} else {
-					instance.broadcasting <- broadcastswitch
-				}
-			case maintainsignal := <-maintain:
+			case maintainsignal := <-alive:
 				if !maintainsignal {
-					// LEARNING: We are closing this maintain channel a couple times over. Not entirely sure why yet, but it causes a panic.
-					close(instance.broadcastswitch)
-					close(instance.broadcasting)
 
 					// Shutdown the server
 					if err := instance.srv.Shutdown(ctx); err != nil {

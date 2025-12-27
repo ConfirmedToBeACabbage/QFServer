@@ -70,7 +70,6 @@ func ClientLoop() {
 							logger.Store("CLIENT", "The worker has not been made by the broker"+br.message)
 						} else {
 							logger.Debug("DEBUG", "Error in creating the worker!")
-							readyforinput <- true
 						}
 
 					}
