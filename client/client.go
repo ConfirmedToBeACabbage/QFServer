@@ -87,14 +87,12 @@ func ClientLoop() {
 						fmt.Println(input)
 					}
 				} else {
-					time.Sleep(time.Millisecond * 100)
+					time.Sleep(time.Second * 1)
 				}
 			case exit := <-exitclient:
 				if exit {
 					return
 				}
-			default:
-				time.Sleep(time.Millisecond * 100)
 			}
 		}
 	}()
