@@ -62,41 +62,26 @@ func (c *Command) util(exit chan bool) {
 
 // SERVER: Listener; This would start the broadcast listener
 func (c *Command) srvbroadcast(maintain chan bool) {
-	// Check server
-	serveractive := server.CheckServerAlive()
-	if !serveractive {
-		fmt.Printf("FAIL: You must run 'util server open' to first open the server")
-	} else {
-		server.ServerInitSingleton().BroadcastStateChange()
-		fmt.Printf("\nSERVER: We have begun broadcasting\n")
-	}
+	server.ServerInitSingleton().BroadcastStateChange()
 }
 
 // SERVER: Open; This should open the server
 func (c *Command) srvopen(maintain chan bool) {
 	fmt.Println("SERVER: In the command method to begin server!")
-
-	// Init the server
-	go server.ServerRun(maintain)
-
+	server.ServerRun(maintain)
 	fmt.Println("SERVER: Server goroutine has begun. It should be created soon!")
 
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
 func (c *Command) srvpool(maintain chan bool) {
-	// Check server
-	serveractive := server.CheckServerAlive()
-	if !serveractive {
-		fmt.Printf("\nFAIL: You must run 'util server open' to first open the server\n")
-	} else {
-		fmt.Println("Showing the pool!")
-		poollist := server.ServerInitSingleton().GetPingPool()
 
-		fmt.Println("Address | Host")
-		for i, v := range poollist {
-			fmt.Println(i + " | " + v)
-		}
+	fmt.Println("Showing the pool!")
+	poollist := server.ServerInitSingleton().GetPingPool()
+
+	fmt.Println("Address | Host")
+	for i, v := range poollist {
+		fmt.Println(i + " | " + v)
 	}
 
 	maintain <- false

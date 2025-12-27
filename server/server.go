@@ -290,37 +290,39 @@ func ServerRun(maintain chan bool) {
 	defer cancel() // Learning: Cancels the resources associated with the things we're canceling
 
 	// Server running loop
-	for {
-		select {
-		case broadcastswitch := <-instance.broadcastswitch:
-			if broadcastswitch {
-				for alreadybroadcasting := range instance.broadcasting {
-					if !alreadybroadcasting {
-						instance.listenbroadcast()
-						instance.sendbroadcast()
-						instance.broadcasting <- true
+	go func() {
+		for {
+			select {
+			case broadcastswitch := <-instance.broadcastswitch:
+				if broadcastswitch {
+					for alreadybroadcasting := range instance.broadcasting {
+						if !alreadybroadcasting {
+							instance.listenbroadcast()
+							instance.sendbroadcast()
+							instance.broadcasting <- true
+						}
 					}
+				} else {
+					instance.broadcasting <- false
 				}
-			} else {
-				instance.broadcasting <- false
-			}
-		case maintainsignal := <-maintain:
-			if !maintainsignal {
-				// LEARNING: We are closing this maintain channel a couple times over. Not entirely sure why yet, but it causes a panic.
-				close(instance.broadcastswitch)
-				close(instance.broadcasting)
+			case maintainsignal := <-maintain:
+				if !maintainsignal {
+					// LEARNING: We are closing this maintain channel a couple times over. Not entirely sure why yet, but it causes a panic.
+					close(instance.broadcastswitch)
+					close(instance.broadcasting)
 
-				// Shutdown the server
-				if err := instance.srv.Shutdown(ctx); err != nil {
-					logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
+					// Shutdown the server
+					if err := instance.srv.Shutdown(ctx); err != nil {
+						logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
+					}
+
+					logger.Debug("DEBUG", "Server has been stopped")
+
+					return
 				}
-
-				logger.Debug("DEBUG", "Server has been stopped")
-
-				return
+			default:
+				time.Sleep(time.Second * 2)
 			}
-		default:
-			time.Sleep(time.Second * 2)
 		}
-	}
+	}()
 }
