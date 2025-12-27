@@ -30,9 +30,6 @@ type ServerInstance struct {
 
 	// Hostname + Address
 	clienthostname string
-
-	// Mutex lock
-	mu sync.Mutex
 }
 
 // Functions to pool everything
@@ -64,6 +61,9 @@ func (si *ServerInstance) handleping(w http.ResponseWriter, r *http.Request) {
 
 // Return all of the ping pools (This is everyone we can contact)
 func (si *ServerInstance) GetPingPool() map[string]string {
+	if !CheckServerAlive() {
+		return map[string]string{"ERROR": "ERROR: Cannot change broadcast since the server isn't alive!"}
+	}
 	return si.pingpool
 }
 
@@ -147,9 +147,10 @@ func (si *ServerInstance) listenbroadcast() {
 
 // Changing server states
 func (si *ServerInstance) BroadcastStateChange() {
-	si.mu.Lock()
-	defer si.mu.Unlock()
-
+	if !CheckServerAlive() {
+		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
+		return
+	}
 	select {
 	case broadcastswitch := <-si.broadcastswitch:
 		si.broadcasting <- broadcastswitch
@@ -160,16 +161,20 @@ func (si *ServerInstance) BroadcastStateChange() {
 
 // Open the server to be pinged
 func (si *ServerInstance) PingStateChange() bool {
-	si.mu.Lock()
-	defer si.mu.Unlock()
+	if !CheckServerAlive() {
+		fmt.Println("ERROR: Cannot change ping status since the server isn't alive!")
+		return false
+	}
 	si.pingopen = !si.pingopen
 	return si.pingopen
 }
 
 // Open the server to be requested
 func (si *ServerInstance) ReqStateChange() bool {
-	si.mu.Lock()
-	defer si.mu.Unlock()
+	if !CheckServerAlive() {
+		fmt.Println("ERROR: Cannot change request status since the server isn't alive!")
+		return false
+	}
 	si.reqopen = !si.reqopen
 	return si.reqopen
 }

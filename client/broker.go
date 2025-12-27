@@ -176,40 +176,44 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 				case startworker := <-worker.start:
 					if startworker {
 						readyforinput <- false
-						worker.setStatus("STATUS: Beginning the goroutine")
-						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
+						worker.setStatus("STATUS: Running a start method for " + worker.name)
+						logger.Debug("BROKER", worker.status)
 						worker.cmethodsig(worker.exit)
 						worker.start <- false // To make sure we don't restart it
+						readyforinput <- true
 					}
 				case maintainworker := <-worker.maintainstart:
 					if maintainworker {
 						readyforinput <- false
-						worker.setStatus("STATUS: Beginning the maintain goroutine")
-						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
+						worker.setStatus("STATUS: Maintain start method for " + worker.name)
+						logger.Debug("BROKER", worker.status)
 						worker.cmethodmaintain(worker.maintain)
 						worker.maintainstart <- false
+						readyforinput <- true
 					}
 				case maintaincheck := <-worker.maintain:
 					if !maintaincheck {
 						readyforinput <- false
-						worker.setStatus("STATUS: Turning off our maintenance")
-						logger.Store("BROKER", "Worker status "+worker.status+" for name "+worker.name)
+						worker.setStatus("STATUS: Exit start method for " + worker.name)
+						logger.Debug("BROKER", worker.status)
 						worker.exit <- true
+						readyforinput <- true
 					}
 				case exitworker := <-worker.exit: // Our delete channel for the worker
 					if exitworker {
 						readyforinput <- false
-						worker.setStatus("STATUS: Exiting the worker!")
+						worker.setStatus("STATUS: Exiting the worker!" + worker.name)
+						logger.Debug("BROKER", worker.status)
 						// Closing the channels used in the worker
 						close(worker.exit)
 						close(worker.start)
 						close(worker.maintain)
 						close(worker.maintainstart)
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
+						readyforinput <- true
 					}
 				default:
-					time.Sleep(time.Second * 2) // Add a small delay
-					readyforinput <- true
+					time.Sleep(time.Second * 1) // Add a small delay
 				}
 			}
 		}
