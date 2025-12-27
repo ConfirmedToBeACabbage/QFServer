@@ -129,7 +129,8 @@ func (si *ServerInstance) listenbroadcast() {
 					// Store [address] = hostname
 					si.pingpool[addr.String()] = strings.Join(senderhostname, " ")
 				} else {
-					fmt.Printf("Could not resolve hostname!")
+					fmt.Printf("Could not resolve hostname!\n")
+					si.pingpool[addr.String()] = ""
 				}
 			}
 
