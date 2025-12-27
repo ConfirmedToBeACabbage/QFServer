@@ -283,7 +283,14 @@ func ServerRun(alive chan bool) {
 		defer cancel() // Learning: Cancels the resources associated with the things we're canceling
 
 		for {
+
+			if instance.broadcasting {
+				instance.listenbroadcast()
+				instance.sendbroadcast()
+			}
+
 			select {
+
 			case maintainsignal := <-alive:
 				if !maintainsignal {
 
