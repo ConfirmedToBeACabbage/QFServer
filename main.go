@@ -4,6 +4,7 @@ import (
 	"github.com/QFServer/client"
 )
 
+// Yipee!
 func main() {
 	client.ClientLoop()
 }
