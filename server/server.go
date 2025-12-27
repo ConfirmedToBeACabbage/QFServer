@@ -29,9 +29,6 @@ type ServerInstance struct {
 
 	// Hostname + Address
 	clienthostname string
-
-	// Mutex
-	mu sync.Mutex
 }
 
 // Functions to pool everything
@@ -93,7 +90,7 @@ func (si *ServerInstance) sendbroadcast() {
 			}
 
 			time.Sleep(time.Second * 2)
-			fmt.Println("Sending a broadcast")
+			fmt.Println("BROADCAST: Sending a broadcast")
 		}
 	}()
 }
