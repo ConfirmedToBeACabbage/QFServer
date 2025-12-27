@@ -88,7 +88,7 @@ func (si *ServerInstance) sendbroadcast() {
 			message := []byte("[QFSERVER]ALIVEPING")
 			_, err = con.Write(message)
 
-			if err == nil {
+			if err != nil {
 				fmt.Printf("Error: %v", err)
 			}
 
