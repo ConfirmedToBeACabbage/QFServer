@@ -68,7 +68,7 @@ func (w *wbrokercontroller) gracefulshutdown(shutdown chan bool) {
 
 // Add a worker
 // Learning: We need to make sure that we're not using a copy of wbrokercontroller but the direct reference
-func (w *wbrokercontroller) configureworker(c *Command, readyprocess chan bool) bool {
+func (w *wbrokercontroller) configureworker(c *Command) bool {
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -138,14 +138,7 @@ func (w *wbrokercontroller) configureworker(c *Command, readyprocess chan bool) 
 
 		newworker.setStatus("[STATUS] Ready to init!")
 
-		go func() {
-
-			<-readyprocess
-			// Adding the new worker to the broker controller list
-			// Learning: We have to actually initialize the map. It's nil right now, we will do that
-			// In the init portion of the init broker
-			w.wbrokerlist[newworker.name] = newworker
-		}()
+		w.wbrokerlist[newworker.name] = newworker
 	}
 
 	return w.error
@@ -209,7 +202,7 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 						delete(w.wbrokerlist, worker.name) // Deleting from the list
 					}
 				default:
-					time.Sleep(time.Second * 3) // Add a small delay
+					time.Sleep(time.Millisecond * 200) // Add a small delay
 					readyforinput <- true
 				}
 			}

@@ -64,8 +64,7 @@ func ClientLoop() {
 					// Redirect with the command
 					if !inputparse.giveerror {
 						logger.Debug("DEBUG", "Lets begin configuration!")
-						processwait := make(chan bool)
-						errorreceive := br.configureworker(inputparse, processwait)
+						errorreceive := br.configureworker(inputparse)
 						logger.Debug("DEBUG", "We have configured!")
 
 						if !errorreceive {
@@ -74,9 +73,6 @@ func ClientLoop() {
 							logger.Debug("DEBUG", "Error in creating the worker!")
 							readyforinput <- true
 						}
-
-						processwait <- true
-						close(processwait)
 
 					} else {
 						fmt.Println(inputparse.message)

@@ -151,11 +151,8 @@ func (si *ServerInstance) BroadcastStateChange() {
 		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
 		return
 	}
-	select {
-	case broadcastswitch := <-si.broadcastswitch:
+	for broadcastswitch := range si.broadcastswitch {
 		si.broadcasting <- broadcastswitch
-	default:
-		return
 	}
 }
 
