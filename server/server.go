@@ -24,8 +24,9 @@ type ServerInstance struct {
 	srv      *http.Server
 
 	// This is the UDP section
-	broadcasting bool
-	buffer       []byte
+	broadcasting        bool
+	alreadybroadcasting bool
+	buffer              []byte
 
 	// Hostname + Address
 	clienthostname string
@@ -150,6 +151,10 @@ func BroadcastStateChange() {
 
 	fmt.Println("SERVER: Instance exists!")
 	serverinstance.broadcasting = !serverinstance.broadcasting
+
+	if !serverinstance.broadcasting {
+		serverinstance.alreadybroadcasting = false
+	}
 }
 
 // Open the server to be pinged
@@ -282,9 +287,10 @@ func ServerRun(alive chan bool) {
 
 		for {
 
-			if instance.broadcasting {
+			if instance.broadcasting && !instance.alreadybroadcasting {
 				instance.listenbroadcast()
 				instance.sendbroadcast()
+				instance.alreadybroadcasting = true
 			}
 
 			select {
