@@ -61,9 +61,6 @@ func (l *logdb) Debug(id string, log string) {
 // The debug logger goroutine which manages all debug messages
 func (l *logdb) BeginDebugLogger(inputcheckchannel chan bool) {
 
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	if inputcheckchannel == nil {
 		fmt.Printf("ERROR: Cannot start the debug logger! Please provide an appropriate input channel")
 		return

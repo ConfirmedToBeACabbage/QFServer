@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/QFServer/log"
 )
@@ -74,16 +73,11 @@ func ClientLoop() {
 							readyforinput <- true
 						}
 
-					} else {
-						fmt.Println(inputparse.message)
-						readyforinput <- true
 					}
 
 					if err != nil {
 						fmt.Println(input)
 					}
-				} else {
-					time.Sleep(time.Second * 1)
 				}
 			case exit := <-exitclient:
 				if exit {

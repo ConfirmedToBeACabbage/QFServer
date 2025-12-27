@@ -151,6 +151,20 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 // 	return []string{worker.name, fmt.Sprintf("%v", worker.start), worker.status}
 // }
 
+// Return latest boolean from a boolean channel
+// Must be buffered!
+func getlatestValue(ch chan bool) bool {
+	var latest bool
+
+	select {
+	case value := <-ch:
+		latest = value
+		return latest
+	default:
+		return false
+	}
+}
+
 // The main broker routine
 func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 
@@ -159,53 +173,57 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 	go func() {
 
 		for {
+			w.mu.Lock()
 			for i := range w.wbrokerlist {
 				worker := w.wbrokerlist[i]
 
 				logger.Store("BROKER", "Checking worker: "+worker.status)
 
 				// Learning: Select is good for not blocking and waiting for channel
-				select {
-				case startworker := <-worker.start:
-					if startworker {
-						readyforinput <- false
-						worker.setStatus("STATUS: Running a start method for " + worker.name)
-						logger.Debug("BROKER", worker.status)
-						worker.cmethodsig(worker.exit)
-						worker.start <- false // To make sure we don't restart it
-					}
-				case maintainworker := <-worker.maintainstart:
-					if maintainworker {
-						readyforinput <- false
-						worker.setStatus("STATUS: Maintain start method for " + worker.name)
-						logger.Debug("BROKER", worker.status)
-						worker.cmethodmaintain(worker.maintain)
-						worker.maintainstart <- false
-					}
-				case maintaincheck := <-worker.maintain:
-					if !maintaincheck {
-						readyforinput <- false
-						worker.setStatus("STATUS: Exit start method for " + worker.name)
-						logger.Debug("BROKER", worker.status)
-						worker.exit <- true
-					}
-				case exitworker := <-worker.exit: // Our delete channel for the worker
-					if exitworker {
-						readyforinput <- false
-						worker.setStatus("STATUS: Exiting the worker!" + worker.name)
-						logger.Debug("BROKER", worker.status)
-						// Closing the channels used in the worker
-						close(worker.exit)
-						close(worker.start)
-						close(worker.maintain)
-						close(worker.maintainstart)
-						delete(w.wbrokerlist, worker.name) // Deleting from the list
-					}
-				default:
-					time.Sleep(time.Millisecond * 200) // Add a small delay
-					readyforinput <- true
+				// Learning: Select statements are Randomly selecting cases, we might need for loops here to enforce order
+				// Learning: Use sync.RWMutex: If the wbrokerlist is read-heavy, you can use a sync.RWMutex to allow multiple readers while still protecting writes.
+				startchk := getlatestValue(worker.start)
+				maintainstartchk := getlatestValue(worker.maintainstart)
+				maintainchk := getlatestValue(worker.maintain)
+				exitchk := getlatestValue(worker.exit)
+
+				// Now we can do sequentially since select statements select at random
+				if startchk {
+					worker.setStatus("STATUS: Running a start method for " + worker.name)
+					logger.Debug("BROKER", worker.status)
+					go worker.cmethodsig(worker.exit)
+					worker.start <- false // To make sure we don't restart it
 				}
+
+				if maintainstartchk {
+					worker.setStatus("STATUS: Maintain start method for " + worker.name)
+					logger.Debug("BROKER", worker.status)
+					go worker.cmethodmaintain(worker.maintain)
+					worker.maintainstart <- false
+					continue
+				}
+
+				if !maintainchk {
+					worker.setStatus("STATUS: Exit start method for " + worker.name)
+					logger.Debug("BROKER", worker.status)
+					worker.exit <- true
+				}
+
+				if exitchk {
+					worker.setStatus("STATUS: Exiting the worker!" + worker.name)
+					logger.Debug("BROKER", worker.status)
+					// Closing the channels used in the worker
+					close(worker.exit)
+					close(worker.start)
+					close(worker.maintain)
+					close(worker.maintainstart)
+					delete(w.wbrokerlist, worker.name) // Deleting from the list
+				}
+
+				time.Sleep(time.Millisecond * 200) // Add a small delay
+				readyforinput <- true
 			}
+			w.mu.Unlock()
 		}
 
 	}()

@@ -30,6 +30,9 @@ type ServerInstance struct {
 
 	// Hostname + Address
 	clienthostname string
+
+	// Mutex
+	mu sync.Mutex
 }
 
 // Functions to pool everything
@@ -93,7 +96,7 @@ func (si *ServerInstance) sendbroadcast() {
 					fmt.Printf("Error: %v", err)
 				}
 
-				time.Sleep(time.Second * 5)
+				time.Sleep(time.Second * 2)
 				fmt.Println("Sending a broadcast")
 			}
 		}
@@ -147,10 +150,13 @@ func (si *ServerInstance) listenbroadcast() {
 
 // Changing server states
 func (si *ServerInstance) BroadcastStateChange() {
+	si.mu.Lock()
+	defer si.mu.Unlock()
 	if !CheckServerAlive() {
 		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
 		return
 	}
+	si.broadcastswitch <- !(<-si.broadcastswitch)
 	for broadcastswitch := range si.broadcastswitch {
 		si.broadcasting <- broadcastswitch
 	}
@@ -282,12 +288,12 @@ func ServerRun(maintain chan bool) {
 
 	logger.Debug("DEBUG", "Server has started!")
 
-	// Context
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel() // Learning: Cancels the resources associated with the things we're canceling
-
 	// Server running loop
 	go func() {
+		// Context
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel() // Learning: Cancels the resources associated with the things we're canceling
+
 		for {
 			select {
 			case broadcastswitch := <-instance.broadcastswitch:
@@ -300,7 +306,7 @@ func ServerRun(maintain chan bool) {
 						}
 					}
 				} else {
-					instance.broadcasting <- false
+					instance.broadcasting <- broadcastswitch
 				}
 			case maintainsignal := <-maintain:
 				if !maintainsignal {
