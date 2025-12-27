@@ -103,7 +103,7 @@ func (si *ServerInstance) listenbroadcast() {
 			IP:   net.ParseIP("0.0.0.0"),
 		}
 
-		con, err := net.DialUDP("udp", nil, &addr)
+		con, err := net.ListenUDP("udp", &addr)
 		if err != nil {
 			fmt.Printf("%v", err)
 		}
