@@ -10,19 +10,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/QFServer/log"
 )
 
 func ClientLoop() {
 
-	// Ready for input channel
-	readyforinput := make(chan bool, 1)
-	readyforinput <- true
-
 	// Logger (We're passing the input channel here)
 	logger := log.GetInstance()
-	logger.BeginDebugLogger(readyforinput)
+	logger.BeginDebugLogger()
 
 	// Reader
 	reader := bufio.NewReader(os.Stdin)
@@ -31,10 +28,10 @@ func ClientLoop() {
 	exitclient := make(chan bool, 1)
 
 	// Give us the broker
-	br := InitBroker(readyforinput)
+	br := InitBroker()
 
 	if br == nil {
-		logger.Store("CLIENT", "Broker has not begun")
+		logger.Debug("CLIENT", "Broker has not begun")
 		exitclient <- true
 	}
 
@@ -42,13 +39,15 @@ func ClientLoop() {
 
 		for {
 			select {
-			case ready := <-readyforinput:
+			default:
+				time.Sleep(time.Second * 2)
+				ready := logger.ReadyForUserInput()
 				if ready {
 					fmt.Println("\nQFServer CLI! Type in - Help - to get started.")
 					fmt.Print("> ")
 					input, err := reader.ReadString('\n')
 
-					// Default exit
+					// Default exit TODO: (Should be moved to a command)
 					if strings.TrimSpace(input) == "quit" {
 						shutdownbroker := make(chan bool)
 						go br.gracefulshutdown(shutdownbroker)
@@ -58,7 +57,7 @@ func ClientLoop() {
 
 					// Parsing
 					inputparse := Parse(input)
-					logger.Store("CLIENT", "We have completed command parsing!")
+					logger.Debug("CLIENT", "We have completed command parsing!")
 
 					// Redirect with the command
 					if !inputparse.giveerror {
@@ -67,7 +66,7 @@ func ClientLoop() {
 						logger.Debug("DEBUG", "We have configured!")
 
 						if !errorreceive {
-							logger.Store("CLIENT", "The worker has not been made by the broker"+br.message)
+							logger.Debug("CLIENT", "The worker has not been made by the broker"+br.message)
 						} else {
 							logger.Debug("DEBUG", "Error in creating the worker!")
 						}

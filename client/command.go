@@ -39,21 +39,24 @@ func (c *Command) help() {
 }
 
 func (c *Command) inbox() {
+	logger := log.GetInstance()
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
-	fmt.Println("Inbox!")
+	logger.Debug("COMMAND", "Inbox!")
 }
 
 func (c *Command) draft() {
 	// This is where we would have a pool of known nodes on the network.
-	fmt.Println("Exit!")
+	logger := log.GetInstance()
+	logger.Debug("COMMAND", "Draft!")
 }
 
 func (c *Command) util() {
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
-	fmt.Println("Utility!")
+	logger := log.GetInstance()
+	logger.Debug("COMMAND", "Utility!")
 }
 
 // SERVER ARGS
@@ -62,7 +65,8 @@ func (c *Command) util() {
 func (c *Command) srvbroadcast(alive chan bool) {
 	<-alive // Wait for alive
 
-	fmt.Println("Changing the server state for broadcasting!")
+	logger := log.GetInstance()
+	logger.Debug("COMMAND", "Changing the server state for broadcasting!")
 	server.BroadcastStateChange()
 	alive <- false
 }
@@ -71,21 +75,23 @@ func (c *Command) srvbroadcast(alive chan bool) {
 func (c *Command) srvopen(alive chan bool) {
 	<-alive // Wait for alive
 
-	fmt.Println("SERVER: In the command method to begin server!")
+	logger := log.GetInstance()
+	logger.Debug("COMMAND", "SERVER: In the command method to begin server!")
 	server.ServerRun(alive)
-	fmt.Println("SERVER: Server goroutine has begun. It should be created soon!")
+	logger.Debug("COMMAND", "SERVER: Server goroutine has begun. It should be created soon!")
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
 func (c *Command) srvpool(alive chan bool) {
 	<-alive // Wait for alive
 
-	fmt.Println("Showing the pool!")
+	logger := log.GetInstance()
+	logger.Debug("COMMAND", "Showing the pool!")
 	poollist := server.ServerInitSingleton().GetPingPool()
 
-	fmt.Println("Address | Host")
+	logger.Debug("OUTPUT", "Address | Host")
 	for i, v := range poollist {
-		fmt.Println(i + " | " + v)
+		logger.Debug("OUTPUT", fmt.Sprintf("%d | %s", i, v))
 	}
 
 	alive <- false
@@ -96,7 +102,8 @@ func (c *Command) srvcheckalive(alive chan bool) {
 	<-alive // Wait for alive
 
 	serveractive := server.CheckServerAlive()
-	fmt.Printf("\nSERVER ACTIVE STATUS: %v\n", serveractive)
+	logger := log.GetInstance()
+	logger.Debug("COMMAND", fmt.Sprintf("SERVER ACTIVE STATUS: %v", serveractive))
 
 	alive <- false
 }
@@ -131,15 +138,15 @@ func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 
 	// Setting up the return list
 	returnlist := make([]func(controller chan bool), 2)
-	returnlist[0] = func(alive chan bool) { fmt.Print("\nEMPTY\n") }
-	returnlist[1] = func(alive chan bool) { fmt.Print("\nEMPTY\n") }
+	returnlist[0] = func(alive chan bool) { logger.Debug("COMMAND", "\nEMPTY\n") }
+	returnlist[1] = func(alive chan bool) { logger.Debug("COMMAND", "\nEMPTY\n") }
 
 	// TODO: this is just a tree traverse, I should automate this away. Commands might grow in length.
 	// AKA make a command tree
 	// Lower priority for now
 	if len(c.args) > 1 {
 		argcall := strings.TrimSpace(c.args[0])
-		fmt.Printf("DEBUG: This is the first argcall %v\n", argcall)
+		logger.Debug("DEBUG", fmt.Sprintf("This is the first argcall %v", argcall))
 		route, okroute := cmaprouteutil[argcall]
 		logger.Debug("DEBUG", "We have gotten past the route!")
 		logger.Debug("DEBUG", fmt.Sprintf("%v\n", route))
@@ -161,7 +168,7 @@ func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 		returnlist[0] = func(alive chan bool) { startmethod() }
 	}
 
-	fmt.Println("Got all the commands and stuff!")
+	logger.Debug("COMMAND", "Got all the commands and stuff!")
 
 	return returnlist[0], returnlist[1]
 }
@@ -189,8 +196,8 @@ func Parse(input string) *Command {
 		return c
 	}
 
-	for i := range len(args) {
-		fmt.Println(i)
+	for i := range args {
+		logger.Debug("DEBUG", fmt.Sprintf("Arg %d: %s", i, args[i]))
 		if i >= 1 {
 			c.args = append(c.args, args[i])
 		}

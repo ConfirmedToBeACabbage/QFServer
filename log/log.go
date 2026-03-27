@@ -12,17 +12,55 @@ import (
 //
 // Set an output or something if needed
 type logMessage struct {
-	id            string
-	message       string
-	userinputting bool
+	id      string
+	message string
 }
 
 type logdb struct {
 	logdictstorage    map[string][]string
-	inputchannel      chan logMessage
+	outputBuffer      *OutBuffer
 	inputcheckchannel chan bool
 	debuggeralive     bool
 	mu                sync.Mutex
+}
+
+// We should only have this as a singleton
+// Learning: You can group things in a var like this
+// Technically they're both vars, it's just for syntax
+var (
+	instance *logdb
+	once     sync.Once
+)
+
+// The debug logger goroutine which manages all debug messages
+func (l *logdb) BeginDebugLogger() {
+
+	if l.debuggeralive {
+		fmt.Println("LOGGER: Logger is already active!")
+		return
+	}
+
+	l.outputBuffer = &OutBuffer{}
+	l.outputBuffer.Init()
+
+	l.debuggeralive = true
+}
+
+// Init the logs only as a singleton (You can pass an input channel here)
+// Although this is just a one time setting operationg. To change the input channel you can set it in SetInputChannel.
+func GetInstance() *logdb {
+
+	once.Do(func() {
+		instance = &logdb{
+			logdictstorage: make(map[string][]string),
+		}
+	})
+
+	return instance
+}
+
+func (l *logdb) ReadyForUserInput() bool {
+	return l.outputBuffer.checkclear()
 }
 
 // Store something in logs according to the id
@@ -45,44 +83,7 @@ func (l *logdb) Debug(id string, log string) {
 	// We use the normal storing function
 	l.Store(id, log)
 
-	localinputcheck := false
-	select {
-	case checkinput := <-l.inputcheckchannel:
-		if checkinput {
-			localinputcheck = true
-		}
-	default:
-		localinputcheck = false
-	}
-
-	l.inputchannel <- logMessage{id: id, message: log, userinputting: localinputcheck}
-}
-
-// The debug logger goroutine which manages all debug messages
-func (l *logdb) BeginDebugLogger(inputcheckchannel chan bool) {
-
-	if inputcheckchannel == nil {
-		fmt.Printf("ERROR: Cannot start the debug logger! Please provide an appropriate input channel")
-		return
-	}
-
-	l.SetInputChannel(inputcheckchannel)
-	l.inputchannel = make(chan logMessage, 1)
-
-	if !l.debuggeralive {
-		go func() {
-			for logMessage := range l.inputchannel {
-				fmt.Printf("%s LOG: %s\n", logMessage.id, logMessage.message)
-				if logMessage.userinputting {
-					fmt.Printf("> ")
-				}
-			}
-		}()
-	} else {
-		fmt.Println("LOGGER: Logger is already active!")
-	}
-
-	l.debuggeralive = true
+	l.outputBuffer.addtooutput(logMessage{id: id, message: log})
 }
 
 // Retreive something in logs according to the id
@@ -94,30 +95,4 @@ func (l *logdb) Read(id string) {
 		log := l.logdictstorage[id][i]
 		fmt.Printf(`\n%s LOG: %s`, id, log)
 	}
-}
-
-// We should only have this as a singleton
-// Learning: You can group things in a var like this
-// Technically they're both vars, it's just for syntax
-var (
-	instance *logdb
-	once     sync.Once
-)
-
-// Setting the input channel
-func (l *logdb) SetInputChannel(inputcheckchannel chan bool) {
-	l.inputcheckchannel = inputcheckchannel
-}
-
-// Init the logs only as a singleton (You can pass an input channel here)
-// Although this is just a one time setting operationg. To change the input channel you can set it in SetInputChannel.
-func GetInstance() *logdb {
-
-	once.Do(func() {
-		instance = &logdb{
-			logdictstorage: make(map[string][]string),
-		}
-	})
-
-	return instance
 }

@@ -28,12 +28,6 @@ func (w *wbroker) setStatus(status string) {
 	w.status = status
 }
 
-func (w *wbroker) getStatus() string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.status
-}
-
 type wbrokercontroller struct {
 	wbrokerlist  map[string]*wbroker // The list of all the workers
 	error        bool
@@ -151,7 +145,7 @@ func (w *wbroker) controlworkerstate() {
 }
 
 // The main broker routine
-func (w *wbrokercontroller) maintain(readyforinput chan bool) {
+func (w *wbrokercontroller) maintain() {
 
 	logger := log.GetInstance()
 
@@ -187,8 +181,6 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 					worker.maintain = false
 				}
 
-				readyforinput <- true
-
 				if worker.exit {
 					worker.setStatus("STATUS: Exiting the worker " + worker.name)
 					logger.Debug("BROKER", worker.status)
@@ -207,7 +199,7 @@ func (w *wbrokercontroller) maintain(readyforinput chan bool) {
 }
 
 // The init for a broker
-func InitBroker(readyforinput chan bool) *wbrokercontroller {
+func InitBroker() *wbrokercontroller {
 	broker := &wbrokercontroller{
 		// Learning: Make does a couple things
 		// 1. Allocate memory
@@ -218,7 +210,7 @@ func InitBroker(readyforinput chan bool) *wbrokercontroller {
 	}
 
 	// Start the listener for the broker
-	go broker.maintain(readyforinput)
+	go broker.maintain()
 
 	fmt.Printf("\nLOG: Done!")
 
