@@ -27,7 +27,9 @@ type Command struct {
 }
 
 // Command methods signed by commandcontrol
-func (c *Command) help() {
+func (c *Command) help(alive chan bool) {
+	<-alive
+
 	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
@@ -36,27 +38,38 @@ func (c *Command) help() {
 		"      - server open: This would start the server and get it ready for scanning",
 		"      - server broadcast: This would start broadcasting your server. Other node pools can pick it up and add it on LAN",
 		"Quit: This will quit the program\n")
+
+	alive <- false
 }
 
-func (c *Command) inbox() {
+func (c *Command) inbox(alive chan bool) {
+	<-alive
 	logger := log.GetInstance()
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
 	logger.Debug("COMMAND", "Inbox!")
+
+	alive <- false
 }
 
-func (c *Command) draft() {
+func (c *Command) draft(alive chan bool) {
+	<-alive
 	// This is where we would have a pool of known nodes on the network.
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Draft!")
+
+	alive <- false
 }
 
-func (c *Command) util() {
+func (c *Command) util(alive chan bool) {
+	<-alive
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Utility!")
+
+	alive <- false
 }
 
 // SERVER ARGS
@@ -68,6 +81,7 @@ func (c *Command) srvbroadcast(alive chan bool) {
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Changing the server state for broadcasting!")
 	server.BroadcastStateChange()
+
 	alive <- false
 }
 
@@ -79,6 +93,8 @@ func (c *Command) srvopen(alive chan bool) {
 	logger.Debug("COMMAND", "SERVER: In the command method to begin server!")
 	server.ServerRun(alive)
 	logger.Debug("COMMAND", "SERVER: Server goroutine has begun. It should be created soon!")
+
+	alive <- false
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
@@ -115,7 +131,7 @@ func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 
 	logger := log.GetInstance()
 
-	cmapstart := map[string]func(){
+	cmapstart := map[string]func(chan bool){
 		"help":  c.help,
 		"inbox": c.inbox,
 		"draft": c.draft,
@@ -165,7 +181,7 @@ func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 	startmethod, okstart := cmapstart[methodcall]
 
 	if okstart {
-		returnlist[0] = func(alive chan bool) { startmethod() }
+		returnlist[0] = func(alive chan bool) { startmethod(alive) }
 	}
 
 	logger.Debug("COMMAND", "Got all the commands and stuff!")
