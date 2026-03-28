@@ -21,6 +21,7 @@ type logdb struct {
 	outputBuffer      *OutBuffer
 	inputcheckchannel chan bool
 	debuggeralive     bool
+	debuglogshow      bool
 	mu                sync.Mutex
 }
 
@@ -44,6 +45,7 @@ func (l *logdb) BeginDebugLogger() {
 	l.outputBuffer.Init()
 
 	l.debuggeralive = true
+	l.debuglogshow = true
 }
 
 // Init the logs only as a singleton (You can pass an input channel here)
@@ -61,6 +63,11 @@ func GetInstance() *logdb {
 
 func (l *logdb) ReadyForUserInput() bool {
 	return l.outputBuffer.checkclear()
+}
+
+// This would turn the debugging output off or o
+func (l *logdb) DebuggingOutputOnOff() {
+	l.debuglogshow = !l.debuglogshow
 }
 
 // Store something in logs according to the id
@@ -83,7 +90,9 @@ func (l *logdb) Debug(id string, log string) {
 	// We use the normal storing function
 	l.Store(id, log)
 
-	l.outputBuffer.addtooutput(logMessage{id: id, message: log})
+	if l.debuglogshow {
+		l.outputBuffer.addtooutput(logMessage{id: id, message: log})
+	}
 }
 
 // Retreive something in logs according to the id

@@ -40,7 +40,7 @@ func ClientLoop() {
 		for {
 			select {
 			default:
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 1)
 				ready := logger.ReadyForUserInput()
 				if ready {
 					fmt.Println("\nQFServer CLI! Type in - Help - to get started.")

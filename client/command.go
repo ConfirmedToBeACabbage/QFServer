@@ -10,6 +10,7 @@ import (
 )
 
 type CMethodSig interface {
+	debugshow(chan bool)
 	help(chan bool)
 	inbox(chan bool)
 	draft(chan bool)
@@ -24,6 +25,15 @@ type Command struct {
 	giveerror bool
 
 	mu sync.Mutex
+}
+
+func (c *Command) debugshow(alive chan bool) {
+	<-alive
+
+	fmt.Printf("Switching the logging output")
+	log.GetInstance().DebuggingOutputOnOff()
+
+	alive <- false
 }
 
 // Command methods signed by commandcontrol
@@ -132,10 +142,11 @@ func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 	logger := log.GetInstance()
 
 	cmapstart := map[string]func(chan bool){
-		"help":  c.help,
-		"inbox": c.inbox,
-		"draft": c.draft,
-		"util":  c.util,
+		"debugshow": c.debugshow,
+		"help":      c.help,
+		"inbox":     c.inbox,
+		"draft":     c.draft,
+		"util":      c.util,
 	}
 
 	cmapserver := map[string]func(chan bool){
@@ -201,7 +212,7 @@ func Parse(input string) *Command {
 	c.command = strings.TrimSpace(args[0])
 
 	// Validate check
-	cmap := map[string]bool{"help": true, "inbox": true, "draft": true, "util": true, "redirect": true}
+	cmap := map[string]bool{"debugshow": true, "help": true, "inbox": true, "draft": true, "util": true, "redirect": true}
 
 	// ERROR
 	_, ok := cmap[strings.TrimSpace(c.command)]
