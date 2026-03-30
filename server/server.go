@@ -30,34 +30,16 @@ type ServerInstance struct {
 
 	// Hostname + Address
 	clienthostname string
+
+	// A connection that the user may have to a node
+	connection *conn
 }
 
-// Functions to pool everything
-func (si *ServerInstance) handlereq(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello!")
-}
-
-// Ping response and receive
-func (si *ServerInstance) handleping(w http.ResponseWriter, r *http.Request) {
-	// Store ping in the pool
-	// - Check duplicates
-	// Respond with a yes or no to the ping
-	address := r.RemoteAddr
-	hostname := r.Host
-
-	// Check duplicates
-	_, exists := si.pingpool[address]
-	if !exists {
-		// Store [address] = hostname
-		si.pingpool[address] = hostname
-	}
-
-	// Write a response
-	currhostname, err := os.Hostname()
-	if err != nil {
-		fmt.Fprintf(w, "[QFServer]\nHostname: %s\n", currhostname)
-	}
-}
+// Server Instance creator
+var (
+	serverinstance *ServerInstance
+	once           sync.Once
+)
 
 // Return all of the ping pools (This is everyone we can contact)
 func (si *ServerInstance) GetPingPool() map[string]string {
@@ -65,6 +47,74 @@ func (si *ServerInstance) GetPingPool() map[string]string {
 		return map[string]string{"ERROR": "ERROR: Cannot change broadcast since the server isn't alive!"}
 	}
 	return si.pingpool
+}
+
+// Open the server to be pinged
+func (si *ServerInstance) PingStateChange() bool {
+	if !CheckServerAlive() {
+		fmt.Println("ERROR: Cannot change ping status since the server isn't alive!")
+		return false
+	}
+	si.pingopen = !si.pingopen
+	return si.pingopen
+}
+
+// Open the server to be requested
+func (si *ServerInstance) ReqStateChange() bool {
+	if !CheckServerAlive() {
+		fmt.Println("ERROR: Cannot change request status since the server isn't alive!")
+		return false
+	}
+	si.reqopen = !si.reqopen
+	return si.reqopen
+}
+
+// Changing server states
+func BroadcastStateChange() {
+	fmt.Println("SERVER: Attempting to change the broadcast switch")
+
+	if !CheckServerAlive() {
+		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
+		return
+	}
+
+	fmt.Println("SERVER: Instance exists!")
+	serverinstance.broadcasting = !serverinstance.broadcasting
+
+	if !serverinstance.broadcasting {
+		serverinstance.alreadybroadcasting = false
+	}
+}
+
+// Simple check alive for the server instance
+func CheckServerAlive() bool {
+	fmt.Println("SERVER: Checking the instance!")
+	if serverinstance == nil {
+		return false
+	} else {
+		return true
+	}
+}
+
+// TODO: This is the function where we establish a connection with a node
+// 1. We need a way to handle being the receiver
+// 2. We need a way to handl ebeing the endpoint
+func (si *ServerInstance) establishnodetonode() {
+	newConn := &conn{}
+
+	// We have to establish and do the connection
+
+	// 1. Ask the user which address you want to request to exchange information
+
+	// 2. Ask the client which file you wish to send over
+
+	// 3. Send the request over to the other user
+
+	// 4. Await confirmation from other user that they want to accept the request
+
+	// 5. Begin the whole transfer in the background
+
+	// 6. Update the user depending on the status flag of the connection
 }
 
 // Send an alive message
@@ -138,59 +188,6 @@ func (si *ServerInstance) listenbroadcast() {
 			fmt.Printf("Received response from %s: %s\n", addr.String(), string(si.buffer[:n]))
 		}
 	}()
-}
-
-// Changing server states
-func BroadcastStateChange() {
-	fmt.Println("SERVER: Attempting to change the broadcast switch")
-
-	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
-		return
-	}
-
-	fmt.Println("SERVER: Instance exists!")
-	serverinstance.broadcasting = !serverinstance.broadcasting
-
-	if !serverinstance.broadcasting {
-		serverinstance.alreadybroadcasting = false
-	}
-}
-
-// Open the server to be pinged
-func (si *ServerInstance) PingStateChange() bool {
-	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change ping status since the server isn't alive!")
-		return false
-	}
-	si.pingopen = !si.pingopen
-	return si.pingopen
-}
-
-// Open the server to be requested
-func (si *ServerInstance) ReqStateChange() bool {
-	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change request status since the server isn't alive!")
-		return false
-	}
-	si.reqopen = !si.reqopen
-	return si.reqopen
-}
-
-// Server Instance creator
-var (
-	serverinstance *ServerInstance
-	once           sync.Once
-)
-
-// Simple check alive for the server instance
-func CheckServerAlive() bool {
-	fmt.Println("SERVER: Checking the instance!")
-	if serverinstance == nil {
-		return false
-	} else {
-		return true
-	}
 }
 
 // The init of the server with once.do for singelton

@@ -107,6 +107,23 @@ func (c *Command) srvopen(alive chan bool) {
 	alive <- false
 }
 
+func (c *Command) srvask(alive chan bool) {
+	<-alive
+
+	server.establishnodetonode()
+
+	alive <- false
+}
+
+func (c *Command) srvcheckreq(alive chan bool) {
+	<-alive
+
+	server.checkreqpool()
+	// If we have a check req pool then we can just call establishnodetonode with the receiver already established
+
+	alive <- false
+}
+
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
 func (c *Command) srvpool(alive chan bool) {
 	<-alive // Wait for alive
