@@ -30,6 +30,9 @@ type ServerInstance struct {
 
 	// A connection that the user may have to a node
 	connection *conn
+
+	// Alive Channel
+	maintainsignal chan bool
 }
 
 // Server Instance creator
@@ -40,6 +43,16 @@ var (
 
 func GetInstance() *ServerInstance {
 	return serverinstance
+}
+
+func ServerClose() {
+	logger := log.GetInstance()
+
+	if serverinstance == nil {
+		logger.Output("ERROR", "Server instance doesn't exist nothing to close")
+	} else {
+		serverinstance.maintainsignal <- false
+	}
 }
 
 // The server runner handling broadcast and normal connections
@@ -69,8 +82,9 @@ func ServerRun(alive chan bool) {
 				Addr:    ":8080",              // Set the address and port
 				Handler: http.DefaultServeMux, // Use the default ServeMux
 			},
-			broadcasting: false,
-			buffer:       make([]byte, 1024),
+			broadcasting:   false,
+			buffer:         make([]byte, 1024),
+			maintainsignal: alive,
 		}
 
 		hostget, errhost := os.Hostname()
@@ -135,7 +149,7 @@ func ServerRun(alive chan bool) {
 
 			select {
 
-			case maintainsignal := <-alive:
+			case maintainsignal := <-serverinstance.maintainsignal:
 				if !maintainsignal {
 
 					// Shutdown the server

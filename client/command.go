@@ -40,12 +40,13 @@ func (c *Command) debugshow(alive chan bool) {
 func (c *Command) help(alive chan bool) {
 	<-alive
 
-	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
+	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
 		"Draft: Draft some message and select a destination on LAN (draft [ip])",
 		"Util: Scanning, checking to see where an open receiver sits (util)",
 		"      - server open: This would start the server and get it ready for scanning",
+		"      - server close: This would be closing the server",
 		"      - server broadcast: This would start broadcasting your server. Other node pools can pick it up and add it on LAN",
 		"      - server pool: This will tell you which addresses are in your pool",
 		"      - server request: This starts the request process. You can send another node a request or accept an incoming connection",
@@ -106,6 +107,14 @@ func (c *Command) srvopen(alive chan bool) {
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "SERVER: In the command method to begin server!")
 	server.ServerRun(alive)
+}
+
+func (c *Command) srvclose(alive chan bool) {
+	<-alive
+
+	logger := log.GetInstance()
+	logger.Output("SERVER", "Closing server")
+	server.ServerClose()
 
 	alive <- false
 }
