@@ -39,16 +39,18 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 	}
 
 	for !goodInput {
-		time.Sleep(time.Second * 1)
 		input := logger.InputFromUser()
 
 		inputProcess := strings.ToLower(input)
 		inputProcess = strings.ReplaceAll(input, " ", "")
+		inputProcess = strings.TrimRight(input, "\r\n")
 
 		if inputProcess == "quit" {
 			logger.SwitchModule("DEFAULT")
 			alive <- false
 			goodInput = true
 		}
+
+		time.Sleep(time.Second * 1)
 	}
 }
