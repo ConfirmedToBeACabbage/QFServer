@@ -1,6 +1,10 @@
 package server
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/QFServer/log"
+)
 
 // Request pool
 func (si *ServerInstance) GetRequestPool() map[int]string {
@@ -20,8 +24,9 @@ func (si *ServerInstance) GetPingPool() map[string]string {
 
 // Open the server to be pinged
 func (si *ServerInstance) PingStateChange() bool {
+	logger := log.GetInstance()
 	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change ping status since the server isn't alive!")
+		logger.Output("ERROR", "Cannot change ping status since the server isn't alive!")
 		return false
 	}
 	si.pingopen = !si.pingopen
@@ -30,8 +35,9 @@ func (si *ServerInstance) PingStateChange() bool {
 
 // Open the server to be requested
 func (si *ServerInstance) ReqStateChange() bool {
+	logger := log.GetInstance()
 	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change request status since the server isn't alive!")
+		logger.Output("ERROR", "Cannot change request status since the server isn't alive!")
 		return false
 	}
 	si.reqopen = !si.reqopen
@@ -40,20 +46,23 @@ func (si *ServerInstance) ReqStateChange() bool {
 
 // Changing server states
 func BroadcastStateChange() {
-	fmt.Println("SERVER: Attempting to change the broadcast switch")
+	logger := log.GetInstance()
+	logger.Output("SERVER", "Attempting to change the broadcast switch")
 
 	if !CheckServerAlive() {
 		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
 		return
 	}
 
-	fmt.Println("SERVER: Instance exists!")
+	logger.Output("SERVER", "Instance exists! Server broadcast will be changed now")
+	logger.Output("SERVER", fmt.Sprintf("Broadcasting: %b", serverinstance.broadcasting))
 	serverinstance.broadcasting = !serverinstance.broadcasting
 }
 
 // Simple check alive for the server instance
 func CheckServerAlive() bool {
-	fmt.Println("SERVER: Checking the instance!")
+	logger := log.GetInstance()
+	logger.Output("SERVER", "Checking the instance!")
 	if serverinstance == nil {
 		return false
 	} else {
