@@ -124,9 +124,7 @@ func (c *Command) srvreq(alive chan bool) {
 
 	// Option to just look at the pool of requests or make an outgoing request
 	serverInstance := server.GetInstance() // Get the server instance object
-	serverInstance.REQmodule()             // This is the module where we are handling the stuff
-
-	alive <- false
+	serverInstance.REQmodule(alive)        // This is the module where we are handling the stuff
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
@@ -173,6 +171,7 @@ func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 
 	cmapserver := map[string]func(chan bool){
 		"broadcast": c.srvbroadcast, // Broadcast our client
+		"close":     c.srvclose,
 		"open":      c.srvopen,
 		"pool":      c.srvpool,
 		"request":   c.srvreq,

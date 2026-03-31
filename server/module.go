@@ -8,7 +8,7 @@ import (
 	"github.com/QFServer/log"
 )
 
-func (si *ServerInstance) REQmodule() {
+func (si *ServerInstance) REQmodule(alive chan bool) {
 
 	// Show the list of addresses in the request pool indexed with number starting at 1
 	// Beside it show the list of addresses which are requesting to you with different indexes
@@ -25,10 +25,15 @@ func (si *ServerInstance) REQmodule() {
 	pingPool := si.GetPingPool()
 	reqPool := si.GetRequestPool()
 
+	// Switch modules
+	logger.SwitchModule("SERVERREQ")
+
 	counter := 0
+	logger.Output("", "Current Pool")
+	logger.Output("", "------------")
 	for _, v := range pingPool {
 
-		fmt.Printf("%d | %s --- %s%d | %s", counter+1, v, "C", counter+1, reqPool[counter])
+		logger.Output("", fmt.Sprintf("%d | %s --- %s%d | %s", counter+1, v, "C", counter+1, reqPool[counter]))
 
 		counter += 1
 	}
@@ -37,21 +42,13 @@ func (si *ServerInstance) REQmodule() {
 		time.Sleep(time.Second * 1)
 		input := logger.InputFromUser()
 
-		typeAnswer := "send"
-
 		inputProcess := strings.ToLower(input)
 		inputProcess = strings.ReplaceAll(input, " ", "")
 
-		switch typeAnswer {
-		case "send":
-			switch inputProcess {
-
-			}
-		case "connection":
-		default:
-			if inputProcess == "quit" {
-				logger.SwitchModule("DEFAULT")
-			}
+		if inputProcess == "quit" {
+			logger.SwitchModule("DEFAULT")
+			alive <- false
+			goodInput = true
 		}
 	}
 }
