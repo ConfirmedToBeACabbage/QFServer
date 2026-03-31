@@ -100,11 +100,12 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	logger.Debug("DEBUG", "We have done the configuration!")
 
 	// Check for duplicate
-	_, duplicate := w.wbrokerlist[newworker.name]
+	dupworker, duplicate := w.wbrokerlist[newworker.name]
 	if duplicate {
 		w.error = true
 		w.message = "ERROR: Broker cannot add duplicate workers"
-		logger.Debug("DEBUG", "We have a duplicate worker name"+newworker.name)
+		logger.Debug("DEBUG", "We have a duplicate worker name: "+newworker.name)
+		logger.Debug("DEBUG", "Alive Status: "+dupworker.status)
 		return w.error
 	} else {
 
@@ -135,12 +136,12 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 // Must be buffered!
 // Learning: Channels are queues. When you drain from a channel it becomes empty! AKa return false!
 func (w *wbroker) controlworkerstate() {
-	select {
-	case workeralive := <-w.alive:
+	for {
+		workeralive := <-w.alive
 		if !workeralive {
 			w.exit = true
+			return
 		}
-	default:
 	}
 }
 

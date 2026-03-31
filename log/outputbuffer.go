@@ -36,6 +36,7 @@ func (ob *OutBuffer) switchmodule(module string) {
 // Init the buffer
 func (ob *OutBuffer) Init() {
 	ob.OutputClear = true
+	ob.CurrModule = "DEFAULT"
 
 	// Init the queue
 	QueueInit()
