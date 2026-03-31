@@ -90,10 +90,9 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	namebuilder := c.command // A new name builder which just uses the whole name
 	for i := range c.args {
 		namebuilder += c.args[i]
-		logger.Debug("DEBUG", "The name we're building! "+namebuilder)
 	}
 	newworker.name = namebuilder
-
+	logger.Debug("DEBUG", "The name we're building! "+namebuilder)
 	logger.Store("BROKER", "Worker has name assigned")
 	newworker.status = "WORKER: Currently being configured"
 	newworker.setStatus("STATUS: Configuring new worker")
@@ -137,11 +136,18 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 // Return latest boolean from a boolean channel
 // Must be buffered!
 // Learning: Channels are queues. When you drain from a channel it becomes empty! AKa return false!
-func (w *wbroker) controlworkerstate() {
+func (w *wbroker) controlworkerstate(wCont *wbrokercontroller) {
+	logger := log.GetInstance()
+
 	for {
+		time.Sleep(time.Millisecond * 500)
 		workeralive := <-w.alive
 		if !workeralive {
-			w.exit = true
+			w.setStatus("STATUS: Exiting the worker " + w.name)
+			logger.Debug("BROKER", w.status)
+			// Closing the channels used in the worker
+			close(w.alive)
+			delete(wCont.wbrokerlist, w.name) // Deleting from the list
 			return
 		}
 	}
@@ -180,16 +186,8 @@ func (w *wbrokercontroller) maintain() {
 					logger.Debug("BROKER", worker.status)
 					go worker.cmethodmaintain(worker.alive)
 					worker.alive <- true
-					go worker.controlworkerstate()
+					go worker.controlworkerstate(w)
 					worker.maintain = false
-				}
-
-				if worker.exit {
-					worker.setStatus("STATUS: Exiting the worker " + worker.name)
-					logger.Debug("BROKER", worker.status)
-					// Closing the channels used in the worker
-					close(worker.alive)
-					delete(w.wbrokerlist, worker.name) // Deleting from the list
 				}
 			}
 		}

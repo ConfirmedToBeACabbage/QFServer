@@ -55,8 +55,8 @@ func BroadcastStateChange() {
 	}
 
 	logger.Output("SERVER", "Instance exists! Server broadcast will be changed now")
-	logger.Output("SERVER", fmt.Sprintf("Broadcasting: %b", serverinstance.broadcasting))
 	serverinstance.broadcasting = !serverinstance.broadcasting
+	logger.Output("SERVER", fmt.Sprintf("Broadcasting: %b", serverinstance.broadcasting))
 }
 
 // Simple check alive for the server instance

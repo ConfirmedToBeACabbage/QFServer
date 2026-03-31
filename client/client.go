@@ -6,6 +6,7 @@ package client
 // 3. Center of control
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/QFServer/log"
@@ -56,9 +57,9 @@ func ClientLoop() {
 						logger.Debug("DEBUG", "We have configured!")
 
 						if !errorreceive {
-							logger.Debug("CLIENT", "The worker has not been made by the broker"+br.message)
+							logger.Debug("CLIENT", "The worker has been made")
 						} else {
-							logger.Debug("DEBUG", "Error in creating the worker!")
+							logger.Debug("DEBUG", fmt.Sprintf("Error in creating the worker!"))
 						}
 
 					}

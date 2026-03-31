@@ -105,7 +105,7 @@ func (c *Command) srvopen(alive chan bool) {
 	<-alive // Wait for alive
 
 	logger := log.GetInstance()
-	logger.Debug("COMMAND", "SERVER: In the command method to begin server!")
+	logger.Debug("SERVER", "In the command method to begin server!")
 	server.ServerRun(alive)
 }
 
