@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -140,11 +142,59 @@ func ServerRun(alive chan bool) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel() // Learning: Cancels the resources associated with the things we're canceling
 
+		var con *net.UDPConn = nil
+
 		for {
 
+			// BROADCASTING AND LISTENING LOGIC
 			if serverinstance.broadcasting {
-				serverinstance.listenbroadcast()
-				serverinstance.sendbroadcast()
+				if con == nil {
+					addr := net.UDPAddr{
+						Port: 12345,
+						IP:   net.ParseIP("255.255.255.255"),
+					}
+
+					conCreate, err := net.DialUDP("udp", nil, &addr)
+					if err != nil {
+						fmt.Printf("%v", err)
+					} else {
+						con = conCreate
+						defer con.Close()
+						con.SetDeadline(time.Now().Add(5 * time.Second))
+						serverinstance.buffer = make([]byte, 1024)
+					}
+				}
+
+				message := []byte("[QFSERVER]ALIVEPING")
+				_, err := con.Write(message)
+
+				if err != nil {
+					fmt.Printf("Error: %v", err)
+				}
+
+				time.Sleep(time.Second * 2)
+				fmt.Println("BROADCAST: Sending a broadcast")
+
+				n, addr, err := con.ReadFromUDP(serverinstance.buffer)
+				if err != nil {
+					break
+				}
+
+				// Check duplicates
+				_, exists := serverinstance.pingpool[addr.String()]
+				senderhostname, errhostname := net.LookupHost(addr.IP.String())
+				if !exists {
+
+					if errhostname != nil {
+						// Store [address] = hostname
+						serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+					} else {
+						fmt.Printf("Could not resolve hostname!\n")
+						serverinstance.pingpool[addr.String()] = ""
+					}
+				}
+
+				fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
 			}
 
 			select {
