@@ -1,7 +1,9 @@
 package log
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"sync"
 )
 
@@ -59,6 +61,37 @@ func GetInstance() *logdb {
 	})
 
 	return instance
+}
+
+// Function to see if we need to actually use the input or another module is currently using it
+func (l *logdb) CheckModule() string {
+	return l.outputBuffer.CurrModule
+}
+
+// Switches the module
+func (l *logdb) SwitchModule(module string) {
+	l.outputBuffer.switchmodule(module)
+}
+
+func (l *logdb) InputFromUser() string {
+
+	if l.outputBuffer.checkclear() {
+		reader := bufio.NewReader(os.Stdin)
+
+		l.outputBuffer.moduleinputtext() // Get the input text depending on the module
+		fmt.Print("> ")
+		input, err := reader.ReadString('\n')
+
+		if err != nil {
+			fmt.Print("CRITICAL: Error")
+			return ""
+		} else {
+			return input
+		}
+
+	} else {
+		return ""
+	}
 }
 
 func (l *logdb) ReadyForUserInput() bool {

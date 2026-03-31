@@ -40,13 +40,16 @@ func (c *Command) debugshow(alive chan bool) {
 func (c *Command) help(alive chan bool) {
 	<-alive
 
-	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
+	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
 		"Inbox: Show incoming mail on LAN (inbox)",
 		"Draft: Draft some message and select a destination on LAN (draft [ip])",
 		"Util: Scanning, checking to see where an open receiver sits (util)",
 		"      - server open: This would start the server and get it ready for scanning",
 		"      - server broadcast: This would start broadcasting your server. Other node pools can pick it up and add it on LAN",
+		"      - server request: This starts the request process. You can send another node a request or accept an incoming connection",
+		"      - server request > quit: When you're in the request module, you can type quit to come back to the main module",
+		"DebugShow: Turn debugging logs on or off. By default they're on.",
 		"Quit: This will quit the program\n")
 
 	alive <- false
@@ -107,19 +110,12 @@ func (c *Command) srvopen(alive chan bool) {
 	alive <- false
 }
 
-func (c *Command) srvask(alive chan bool) {
+func (c *Command) srvreq(alive chan bool) {
 	<-alive
 
-	server.establishnodetonode()
-
-	alive <- false
-}
-
-func (c *Command) srvcheckreq(alive chan bool) {
-	<-alive
-
-	server.checkreqpool()
-	// If we have a check req pool then we can just call establishnodetonode with the receiver already established
+	// Option to just look at the pool of requests or make an outgoing request
+	serverInstance := server.GetInstance() // Get the server instance object
+	serverInstance.REQmodule()             // This is the module where we are handling the stuff
 
 	alive <- false
 }
@@ -170,6 +166,7 @@ func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 		"broadcast": c.srvbroadcast, // Broadcast our client
 		"open":      c.srvopen,
 		"pool":      c.srvpool,
+		"request":   c.srvreq,
 		"alive":     c.srvcheckalive,
 	}
 

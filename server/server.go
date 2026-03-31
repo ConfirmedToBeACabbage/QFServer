@@ -3,10 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,7 +15,7 @@ import (
 type ServerInstance struct {
 	// TLS section
 	pingpool map[string]string
-	reqpool  map[string]*http.Request
+	reqpool  map[int]string
 	pingopen bool
 	reqopen  bool
 	handlers map[string]func(w http.ResponseWriter, r *http.Request)
@@ -41,153 +39,8 @@ var (
 	once           sync.Once
 )
 
-// Return all of the ping pools (This is everyone we can contact)
-func (si *ServerInstance) GetPingPool() map[string]string {
-	if !CheckServerAlive() {
-		return map[string]string{"ERROR": "ERROR: Cannot change broadcast since the server isn't alive!"}
-	}
-	return si.pingpool
-}
-
-// Open the server to be pinged
-func (si *ServerInstance) PingStateChange() bool {
-	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change ping status since the server isn't alive!")
-		return false
-	}
-	si.pingopen = !si.pingopen
-	return si.pingopen
-}
-
-// Open the server to be requested
-func (si *ServerInstance) ReqStateChange() bool {
-	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change request status since the server isn't alive!")
-		return false
-	}
-	si.reqopen = !si.reqopen
-	return si.reqopen
-}
-
-// Changing server states
-func BroadcastStateChange() {
-	fmt.Println("SERVER: Attempting to change the broadcast switch")
-
-	if !CheckServerAlive() {
-		fmt.Println("ERROR: Cannot change broadcast since the server isn't alive!")
-		return
-	}
-
-	fmt.Println("SERVER: Instance exists!")
-	serverinstance.broadcasting = !serverinstance.broadcasting
-
-	if !serverinstance.broadcasting {
-		serverinstance.alreadybroadcasting = false
-	}
-}
-
-// Simple check alive for the server instance
-func CheckServerAlive() bool {
-	fmt.Println("SERVER: Checking the instance!")
-	if serverinstance == nil {
-		return false
-	} else {
-		return true
-	}
-}
-
-// TODO: This is the function where we establish a connection with a node
-// 1. We need a way to handle being the receiver
-// 2. We need a way to handl ebeing the endpoint
-func (si *ServerInstance) establishnodetonode() {
-	newConn := &conn{}
-
-	// We have to establish and do the connection
-
-	// 1. Ask the user which address you want to request to exchange information
-
-	// 2. Ask the client which file you wish to send over
-
-	// 3. Send the request over to the other user
-
-	// 4. Await confirmation from other user that they want to accept the request
-
-	// 5. Begin the whole transfer in the background
-
-	// 6. Update the user depending on the status flag of the connection
-}
-
-// Send an alive message
-func (si *ServerInstance) sendbroadcast() {
-	go func() {
-		addr := net.UDPAddr{
-			Port: 12345,
-			IP:   net.ParseIP("255.255.255.255"),
-		}
-
-		con, err := net.DialUDP("udp", nil, &addr)
-		if err != nil {
-			fmt.Printf("%v", err)
-		}
-		defer con.Close()
-
-		// Learning: If i'm just looping over one channel I can do this
-		for si.broadcasting {
-			message := []byte("[QFSERVER]ALIVEPING")
-			_, err = con.Write(message)
-
-			if err != nil {
-				fmt.Printf("Error: %v", err)
-			}
-
-			time.Sleep(time.Second * 2)
-			fmt.Println("BROADCAST: Sending a broadcast")
-		}
-	}()
-}
-
-// Listen for alive
-func (si *ServerInstance) listenbroadcast() {
-	go func() {
-		addr := net.UDPAddr{
-			Port: 12345,
-			IP:   net.ParseIP("0.0.0.0"),
-		}
-
-		con, err := net.ListenUDP("udp", &addr)
-		if err != nil {
-			fmt.Printf("%v", err)
-		}
-		defer con.Close()
-
-		con.SetDeadline(time.Now().Add(5 * time.Second))
-
-		si.buffer = make([]byte, 1024)
-
-		for si.broadcasting {
-
-			n, addr, err := con.ReadFromUDP(si.buffer)
-			if err != nil {
-				break
-			}
-
-			// Check duplicates
-			_, exists := si.pingpool[addr.String()]
-			senderhostname, errhostname := net.LookupHost(addr.IP.String())
-			if !exists {
-
-				if errhostname != nil {
-					// Store [address] = hostname
-					si.pingpool[addr.String()] = strings.Join(senderhostname, " ")
-				} else {
-					fmt.Printf("Could not resolve hostname!\n")
-					si.pingpool[addr.String()] = ""
-				}
-			}
-
-			fmt.Printf("Received response from %s: %s\n", addr.String(), string(si.buffer[:n]))
-		}
-	}()
+func GetInstance() *ServerInstance {
+	return serverinstance
 }
 
 // The init of the server with once.do for singelton
@@ -200,7 +53,7 @@ func ServerInitSingleton() *ServerInstance {
 		// LEARNING: THIS INITIALIZES AND SETS, WE DONT NEED A LOCAL VARIABLE WE JUST NEED TO UPDATE THE GLOBAL VARIABLE
 		serverinstance = &ServerInstance{
 			pingpool: make(map[string]string),
-			reqpool:  make(map[string]*http.Request),
+			reqpool:  make(map[int]string),
 			pingopen: false,
 			reqopen:  false,
 			handlers: map[string]func(w http.ResponseWriter, r *http.Request){

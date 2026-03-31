@@ -6,9 +6,6 @@ package client
 // 3. Center of control
 
 import (
-	"bufio"
-	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -20,9 +17,6 @@ func ClientLoop() {
 	// Logger (We're passing the input channel here)
 	logger := log.GetInstance()
 	logger.BeginDebugLogger()
-
-	// Reader
-	reader := bufio.NewReader(os.Stdin)
 
 	// Quit channel
 	exitclient := make(chan bool, 1)
@@ -40,12 +34,9 @@ func ClientLoop() {
 		for {
 			select {
 			default:
-				time.Sleep(time.Second * 1)
-				ready := logger.ReadyForUserInput()
-				if ready {
-					fmt.Println("\nQFServer CLI! Type in - Help - to get started.")
-					fmt.Print("> ")
-					input, err := reader.ReadString('\n')
+				if logger.CheckModule() == "DEFAULT" {
+					time.Sleep(time.Second * 1)
+					input := logger.InputFromUser()
 
 					// Default exit TODO: (Should be moved to a command)
 					if strings.TrimSpace(input) == "quit" {
@@ -73,9 +64,6 @@ func ClientLoop() {
 
 					}
 
-					if err != nil {
-						fmt.Println(input)
-					}
 				}
 			case exit := <-exitclient:
 				if exit {
