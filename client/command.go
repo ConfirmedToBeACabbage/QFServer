@@ -105,7 +105,6 @@ func (c *Command) srvopen(alive chan bool) {
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "SERVER: In the command method to begin server!")
 	server.ServerRun(alive)
-	logger.Debug("COMMAND", "SERVER: Server goroutine has begun. It should be created soon!")
 
 	alive <- false
 }

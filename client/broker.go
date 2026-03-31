@@ -49,7 +49,9 @@ func (w *wbrokercontroller) gracefulshutdown(shutdown chan bool) {
 	for i := range w.wbrokerlist {
 		worker := w.wbrokerlist[i]
 
-		close(worker.alive)
+		if !(<-worker.alive) {
+			close(worker.alive)
+		}
 	}
 
 	shutdown <- true

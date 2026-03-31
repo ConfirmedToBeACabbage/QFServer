@@ -128,6 +128,14 @@ func (l *logdb) Debug(id string, log string) {
 	}
 }
 
+// Debug Storing and Printing in sync with the input
+func (l *logdb) Output(id string, log string) {
+	// We use the normal storing function
+	l.Store(id, log)
+
+	l.outputBuffer.addtooutput(logMessage{id: id, message: log})
+}
+
 // Retreive something in logs according to the id
 func (l *logdb) Read(id string) {
 	l.mu.Lock()

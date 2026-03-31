@@ -49,10 +49,6 @@ func BroadcastStateChange() {
 
 	fmt.Println("SERVER: Instance exists!")
 	serverinstance.broadcasting = !serverinstance.broadcasting
-
-	if !serverinstance.broadcasting {
-		serverinstance.alreadybroadcasting = false
-	}
 }
 
 // Simple check alive for the server instance

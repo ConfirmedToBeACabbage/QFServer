@@ -22,9 +22,8 @@ type ServerInstance struct {
 	srv      *http.Server
 
 	// This is the UDP section
-	broadcasting        bool
-	alreadybroadcasting bool
-	buffer              []byte
+	broadcasting bool
+	buffer       []byte
 
 	// Hostname + Address
 	clienthostname string
@@ -43,10 +42,15 @@ func GetInstance() *ServerInstance {
 	return serverinstance
 }
 
-// The init of the server with once.do for singelton
-func ServerInitSingleton() *ServerInstance {
+// The server runner handling broadcast and normal connections
+func ServerRun(alive chan bool) {
 
 	logger := log.GetInstance()
+
+	if serverinstance != nil {
+		logger.Output("SERVER", "There already exists an instance!")
+		return
+	}
 
 	once.Do(func() {
 
@@ -92,20 +96,7 @@ func ServerInitSingleton() *ServerInstance {
 		serverinstance.srv.MaxHeaderBytes = 1024
 	})
 
-	return serverinstance
-}
-
-// The server runner handling broadcast and normal connections
-func ServerRun(alive chan bool) {
-
-	fmt.Printf("DEBUG: Starting server!")
-
-	// Get the singleton and use it
-	ServerInitSingleton()
-
-	instance := serverinstance
-
-	logger := log.GetInstance()
+	logger.Output("SERVER", "Starting server!")
 
 	/* Learning!
 	signal 0xc0000005: This is a Windows-specific error indicating an access violation (attempting to access memory that is not valid).
@@ -113,17 +104,17 @@ func ServerRun(alive chan bool) {
 	pc=0x7ff7aa2eb870: This is the program counter (instruction pointer) at the time of the crash.
 	goroutine 82: The crash occurred in the ServerRun function, which was called in a goroutine.
 	*/
-	if instance == nil {
+	if serverinstance == nil {
 		logger.Debug("DEBUG", "Failed to start server! Setting the maintain to be false")
 		alive <- false
 		return
 	}
 
 	go func() {
-		logger.Debug("DEBUG", fmt.Sprintf("Starting the http, instance %v", instance))
-		err := instance.srv.ListenAndServe() // Not http listen and serve, we have our own server
+		logger.Debug("DEBUG", fmt.Sprintf("Starting the http, instance %v", serverinstance))
+		err := serverinstance.srv.ListenAndServe() // Not http listen and serve, we have our own server
 		if err == nil {
-			fmt.Println("Error in starting the server", err)
+			logger.Output("ERROR", "Error in starting the server")
 		}
 	}()
 
@@ -137,10 +128,9 @@ func ServerRun(alive chan bool) {
 
 		for {
 
-			if instance.broadcasting && !instance.alreadybroadcasting {
-				instance.listenbroadcast()
-				instance.sendbroadcast()
-				instance.alreadybroadcasting = true
+			if serverinstance.broadcasting {
+				serverinstance.listenbroadcast()
+				serverinstance.sendbroadcast()
 			}
 
 			select {
@@ -149,7 +139,7 @@ func ServerRun(alive chan bool) {
 				if !maintainsignal {
 
 					// Shutdown the server
-					if err := instance.srv.Shutdown(ctx); err != nil {
+					if err := serverinstance.srv.Shutdown(ctx); err != nil {
 						logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
 					}
 
@@ -158,7 +148,7 @@ func ServerRun(alive chan bool) {
 					return
 				}
 			default:
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 1)
 			}
 		}
 	}()
