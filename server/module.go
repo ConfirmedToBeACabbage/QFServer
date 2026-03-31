@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/QFServer/log"
@@ -41,11 +40,7 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 	for !goodInput {
 		input := logger.InputFromUser()
 
-		inputProcess := strings.ToLower(input)
-		inputProcess = strings.ReplaceAll(input, " ", "")
-		inputProcess = strings.TrimRight(input, "\r\n")
-
-		if inputProcess == "quit" {
+		if input == "quit" {
 			logger.SwitchModule("DEFAULT")
 			alive <- false
 			goodInput = true

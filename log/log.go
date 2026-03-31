@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -70,23 +71,32 @@ func (l *logdb) CheckModule() string {
 
 // Switches the module
 func (l *logdb) SwitchModule(module string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	l.outputBuffer.switchmodule(module)
 }
 
 func (l *logdb) InputFromUser() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
 	if l.outputBuffer.checkclear() {
 		reader := bufio.NewReader(os.Stdin)
 
 		l.outputBuffer.moduleinputtext() // Get the input text depending on the module
-		fmt.Print("> ")
+		l.Output("IN", "> ")
 		input, err := reader.ReadString('\n')
+
+		inputProcess := strings.ToLower(input)
+		inputProcess = strings.ReplaceAll(input, " ", "")
+		inputProcess = strings.TrimRight(input, "\r\n")
 
 		if err != nil {
 			fmt.Print("CRITICAL: Error")
 			return ""
 		} else {
-			return input
+			return inputProcess
 		}
 
 	} else {
@@ -130,9 +140,6 @@ func (l *logdb) Debug(id string, log string) {
 
 // Debug Storing and Printing in sync with the input
 func (l *logdb) Output(id string, log string) {
-	// We use the normal storing function
-	l.Store(id, log)
-
 	l.outputBuffer.addtooutput(logMessage{id: id, message: log})
 }
 

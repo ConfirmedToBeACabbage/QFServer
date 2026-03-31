@@ -6,7 +6,6 @@ package client
 // 3. Center of control
 
 import (
-	"strings"
 	"time"
 
 	"github.com/QFServer/log"
@@ -39,7 +38,7 @@ func ClientLoop() {
 					input := logger.InputFromUser()
 
 					// Default exit TODO: (Should be moved to a command)
-					if strings.TrimSpace(input) == "quit" {
+					if input == "quit" {
 						shutdownbroker := make(chan bool)
 						go br.gracefulshutdown(shutdownbroker)
 						<-shutdownbroker

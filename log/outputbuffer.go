@@ -49,7 +49,11 @@ func (ob *OutBuffer) Init() {
 
 				queueOut, ok := ob.outputQueue.Dequeue()
 				if ok {
-					fmt.Printf("OUTPUT [%s]%s \n", queueOut.id, queueOut.message)
+					if queueOut.id == "IN" {
+						fmt.Printf("[%s]%s", queueOut.id, queueOut.message)
+					} else {
+						fmt.Printf("[%s]%s \n", queueOut.id, queueOut.message)
+					}
 				}
 
 				ob.checkclear()

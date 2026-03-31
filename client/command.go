@@ -122,9 +122,17 @@ func (c *Command) srvclose(alive chan bool) {
 func (c *Command) srvreq(alive chan bool) {
 	<-alive
 
+	logger := log.GetInstance()
+
 	// Option to just look at the pool of requests or make an outgoing request
 	serverInstance := server.GetInstance() // Get the server instance object
-	serverInstance.REQmodule(alive)        // This is the module where we are handling the stuff
+	if serverInstance == nil {
+		logger.Output("SERVER", "Server is not on!")
+		alive <- false
+		return
+	} else {
+		serverInstance.REQmodule(alive) // This is the module where we are handling the stuff
+	}
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
