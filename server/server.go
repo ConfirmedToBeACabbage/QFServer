@@ -233,8 +233,6 @@ func createudpcon(port int, ip string, listen bool) *net.UDPConn {
 	if err != nil {
 		fmt.Printf("%v", err)
 	} else {
-		con := conCreate
-		con.SetDeadline(time.Now().Add(5 * time.Second))
 		serverinstance.buffer = make([]byte, 1024)
 	}
 
