@@ -34,7 +34,7 @@ type ServerInstance struct {
 	connection *conn
 
 	// Alive Channel
-	maintainsignal chan bool
+	maintainsignal bool
 }
 
 // Server Instance creator
@@ -53,12 +53,12 @@ func ServerClose() {
 	if serverinstance == nil {
 		logger.Output("ERROR", "Server instance doesn't exist nothing to close")
 	} else {
-		serverinstance.maintainsignal <- false
+		serverinstance.maintainsignal = false
 	}
 }
 
 // The server runner handling broadcast and normal connections
-func ServerRun(alive chan bool) {
+func ServerRun(alive bool) {
 
 	logger := log.GetInstance()
 
@@ -122,7 +122,7 @@ func ServerRun(alive chan bool) {
 	*/
 	if serverinstance == nil {
 		logger.Debug("DEBUG", "Failed to start server! Setting the maintain to be false")
-		alive <- false
+		alive = false
 		return
 	}
 
@@ -197,23 +197,19 @@ func ServerRun(alive chan bool) {
 				fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
 			}
 
-			select {
+			if !serverinstance.maintainsignal {
 
-			case maintainsignal := <-serverinstance.maintainsignal:
-				if !maintainsignal {
-
-					// Shutdown the server
-					if err := serverinstance.srv.Shutdown(ctx); err != nil {
-						logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
-					}
-
-					logger.Debug("DEBUG", "Server has been stopped")
-
-					return
+				// Shutdown the server
+				if err := serverinstance.srv.Shutdown(ctx); err != nil {
+					logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
 				}
-			default:
-				time.Sleep(time.Second * 1)
+
+				logger.Debug("DEBUG", "Server has been stopped")
+
+				return
 			}
+
+			time.Sleep(time.Second * 1)
 		}
 	}()
 }

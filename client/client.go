@@ -41,7 +41,6 @@ func ClientLoop() {
 					// Default exit TODO: (Should be moved to a command)
 					if input == "quit" {
 						shutdownbroker := make(chan bool)
-						go br.gracefulshutdown(shutdownbroker)
 						<-shutdownbroker
 						exitclient <- true
 					}
