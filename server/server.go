@@ -146,7 +146,7 @@ func ServerRun(alive bool) {
 
 			// BROADCASTING AND LISTENING LOGIC
 			if serverinstance.broadcasting {
-				con := createudpcon(8080, "255.255.255.255")
+				con := createudpcon(8080, "255.255.255.255", false)
 
 				if con == nil {
 					logger.Debug("SERVER | ERROR", "Connection could not be created!")
@@ -164,34 +164,40 @@ func ServerRun(alive bool) {
 
 				con.Close()
 
-				con = createudpcon(8080, "0.0.0.0")
-
-				if con == nil {
-					logger.Debug("SERVER | ERROR", "Connection could not be created!")
-				}
-
-				n, addr, err := con.ReadFromUDP(serverinstance.buffer)
-				if err != nil {
-					fmt.Println("ERROR: Could not read from UDP: " + err.Error())
-				} else {
-					// Check duplicates
-					_, exists := serverinstance.pingpool[addr.String()]
-					senderhostname, errhostname := net.LookupHost(addr.IP.String())
-					if !exists {
-
-						if errhostname != nil {
-							// Store [address] = hostname
-							serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+				go func() {
+					con = createudpcon(8080, "0.0.0.0", true)
+					defer con.Close()
+					for {
+						if con == nil {
+							logger.Debug("SERVER | ERROR", "Connection could not be created!")
 						} else {
-							fmt.Printf("Could not resolve hostname!\n")
-							serverinstance.pingpool[addr.String()] = ""
+							break
+						}
+
+						n, addr, err := con.ReadFromUDP(serverinstance.buffer)
+						if err != nil {
+							fmt.Println("ERROR: Could not read from UDP: " + err.Error())
+							break
+						} else {
+							// Check duplicates
+							_, exists := serverinstance.pingpool[addr.String()]
+							senderhostname, errhostname := net.LookupHost(addr.IP.String())
+							if !exists {
+
+								if errhostname != nil {
+									// Store [address] = hostname
+									serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+								} else {
+									fmt.Printf("Could not resolve hostname!\n")
+									serverinstance.pingpool[addr.String()] = ""
+								}
+							}
+
+							fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
 						}
 					}
+				}()
 
-					fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
-				}
-
-				con.Close()
 			}
 
 			if !serverinstance.maintainsignal {
@@ -211,13 +217,21 @@ func ServerRun(alive bool) {
 	}()
 }
 
-func createudpcon(port int, ip string) *net.UDPConn {
+func createudpcon(port int, ip string, listen bool) *net.UDPConn {
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP(ip),
 	}
 
-	conCreate, err := net.DialUDP("udp", nil, &addr)
+	var conCreate *net.UDPConn = nil
+	var err error = nil
+
+	if !listen {
+		conCreate, err = net.DialUDP("udp", nil, &addr)
+	} else {
+		conCreate, err = net.ListenUDP("udp", &addr)
+	}
+
 	if err != nil {
 		fmt.Printf("%v", err)
 	} else {
