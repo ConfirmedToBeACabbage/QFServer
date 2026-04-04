@@ -28,11 +28,10 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 	logger.SwitchModule("SERVERREQ")
 
 	counter := 0
-	logger.Output("", "Current Pool")
-	logger.Output("", "------------")
-	for _, v := range pingPool {
+	logger.Output("SERVERREQ", "Current Pool")
+	for i := range pingPool {
 
-		logger.Output("", fmt.Sprintf("%d | %s --- %s%d | %s", counter+1, v, "C", counter+1, reqPool[counter]))
+		logger.Output("DATA", fmt.Sprintf("%d | %s --- %s%d | %s", counter+1, i, "C", counter+1, reqPool[counter]))
 
 		counter += 1
 	}
