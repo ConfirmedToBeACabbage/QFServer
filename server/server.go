@@ -122,96 +122,13 @@ func ServerRun(alive chan bool) {
 		return
 	}
 
-	go func() {
-		logger.Debug("DEBUG", fmt.Sprintf("Starting the http, instance %v", serverinstance))
-		err := serverinstance.srv.ListenAndServe() // Not http listen and serve, we have our own server
-		if err == nil {
-			logger.Output("ERROR", "Error in starting the server")
-		}
-	}()
+	// Main components of setting the server up
+	go createserverinstance() // Create the instance for listen and serve
+	go createudplistener()    // Create a udp listener
+	go servershutdownflag()   // Do shutdown work when closing
+	go broadcasttonodes()     // Listener to broadcast to nodes
 
 	logger.Debug("DEBUG", "Server has started!")
-
-	// Server running loop
-	go func() {
-
-		con := createudpcon(8080, "0.0.0.0", true)
-		if con == nil { // TODO: Add handler for this
-			logger.Debug("SERVER | ERROR", "Connection could not be created!")
-		}
-		defer con.Close()
-
-		go func() {
-
-			waitState := <-serverinstance.maintainsignal
-			if !waitState {
-
-				// Shutdown the server
-				if err := serverinstance.srv.Shutdown(context.Background()); err != nil { //CTX in this case is not a copy
-					logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
-				}
-
-				logger.Debug("DEBUG", "Server has been stopped")
-
-				serverinstance = nil
-				//delete(http.DefaultServeMux.Handle(), "/") Interesting implementation in this method though
-			}
-
-		}()
-
-		for {
-
-			if serverinstance != nil {
-				// BROADCASTING AND LISTENING LOGIC
-				if serverinstance.broadcasting {
-					con := createudpcon(8080, "255.255.255.255", false)
-
-					if con == nil {
-						logger.Debug("SERVER | ERROR", "Connection could not be created!")
-					}
-
-					message := []byte("[QFSERVER]ALIVEPING")
-					_, err := con.Write(message)
-
-					if err != nil {
-						fmt.Printf("Error: %v", err)
-					}
-
-					time.Sleep(time.Second * 2)
-					fmt.Println("BROADCAST: Sending a broadcast")
-
-					con.Close()
-				}
-
-				n, addr, err := con.ReadFromUDP(serverinstance.buffer)
-				if err != nil {
-					fmt.Println("ERROR: Could not read from UDP: " + err.Error())
-					break
-				} else {
-					// Check duplicates
-					_, exists := serverinstance.pingpool[addr.String()]
-					senderhostname, errhostname := net.LookupHost(addr.IP.String())
-					if !exists {
-
-						if errhostname != nil {
-							// Store [address] = hostname
-							serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
-						} else {
-							fmt.Printf("Could not resolve hostname!\n")
-							serverinstance.pingpool[addr.String()] = ""
-						}
-					}
-
-					fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
-				}
-
-			} else {
-				break
-			}
-
-			time.Sleep(time.Second * 1)
-		}
-	}()
 }
 
 func createudpcon(port int, ip string, listen bool) *net.UDPConn {
@@ -236,4 +153,90 @@ func createudpcon(port int, ip string, listen bool) *net.UDPConn {
 	}
 
 	return conCreate
+}
+
+func createudplistener() {
+
+	logger := log.GetInstance()
+	con := createudpcon(8080, "0.0.0.0", true)
+	if con == nil { // TODO: Add handler for this
+		logger.Debug("SERVER | ERROR", "Connection could not be created!")
+	}
+	defer con.Close()
+
+	for serverinstance != nil {
+		n, addr, err := con.ReadFromUDP(serverinstance.buffer)
+		if err != nil {
+			fmt.Println("ERROR: Could not read from UDP: " + err.Error())
+		} else {
+			// Check duplicates
+			_, exists := serverinstance.pingpool[addr.String()]
+			senderhostname, errhostname := net.LookupHost(addr.IP.String())
+			if !exists {
+
+				if errhostname != nil {
+					// Store [address] = hostname
+					serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+				} else {
+					fmt.Printf("Could not resolve hostname!\n")
+					serverinstance.pingpool[addr.String()] = ""
+				}
+			}
+
+			fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
+		}
+	}
+}
+
+func servershutdownflag() {
+	logger := log.GetInstance()
+	waitState := <-serverinstance.maintainsignal
+	if !waitState {
+
+		// Shutdown the server
+		if err := serverinstance.srv.Shutdown(context.Background()); err != nil { //CTX in this case is not a copy
+			logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
+		}
+
+		logger.Debug("DEBUG", "Server has been stopped")
+
+		serverinstance = nil
+		//delete(http.DefaultServeMux.Handle(), "/") Interesting implementation in this method though
+	}
+}
+
+func createserverinstance() {
+	logger := log.GetInstance()
+	logger.Debug("DEBUG", fmt.Sprintf("Starting the http, instance %v", serverinstance))
+	err := serverinstance.srv.ListenAndServe() // Not http listen and serve, we have our own server
+	if err == nil {
+		logger.Output("ERROR", "Error in starting the server")
+	}
+}
+
+func broadcasttonodes() {
+	logger := log.GetInstance()
+	con := createudpcon(8080, "255.255.255.255", false)
+
+	for serverinstance != nil {
+		for serverinstance.broadcasting {
+			if con == nil {
+				logger.Debug("SERVER | ERROR", "Connection could not be created!")
+			}
+
+			message := []byte("[QFSERVER]ALIVEPING")
+			_, err := con.Write(message)
+
+			if err != nil {
+				fmt.Printf("Error: %v", err)
+			}
+
+			time.Sleep(time.Second * 2)
+			fmt.Println("BROADCAST: Sending a broadcast")
+		}
+
+		time.Sleep(time.Second * 2)
+	}
+
+	con.Close()
 }
