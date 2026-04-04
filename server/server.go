@@ -142,27 +142,14 @@ func ServerRun(alive bool) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel() // Learning: Cancels the resources associated with the things we're canceling
 
-		var con *net.UDPConn = nil
-
 		for {
 
 			// BROADCASTING AND LISTENING LOGIC
 			if serverinstance.broadcasting {
-				if con == nil {
-					addr := net.UDPAddr{
-						Port: 12345,
-						IP:   net.ParseIP("255.255.255.255"),
-					}
+				con := createudpcon(8080, "255.255.255.255")
 
-					conCreate, err := net.DialUDP("udp", nil, &addr)
-					if err != nil {
-						fmt.Printf("%v", err)
-					} else {
-						con = conCreate
-						defer con.Close()
-						con.SetDeadline(time.Now().Add(5 * time.Second))
-						serverinstance.buffer = make([]byte, 1024)
-					}
+				if con == nil {
+					logger.Debug("SERVER | ERROR", "Connection could not be created!")
 				}
 
 				message := []byte("[QFSERVER]ALIVEPING")
@@ -175,26 +162,36 @@ func ServerRun(alive bool) {
 				time.Sleep(time.Second * 2)
 				fmt.Println("BROADCAST: Sending a broadcast")
 
+				con.Close()
+
+				con = createudpcon(8080, "0.0.0.0")
+
+				if con == nil {
+					logger.Debug("SERVER | ERROR", "Connection could not be created!")
+				}
+
 				n, addr, err := con.ReadFromUDP(serverinstance.buffer)
 				if err != nil {
-					break
-				}
+					fmt.Println("ERROR: Could not read from UDP: " + err.Error())
+				} else {
+					// Check duplicates
+					_, exists := serverinstance.pingpool[addr.String()]
+					senderhostname, errhostname := net.LookupHost(addr.IP.String())
+					if !exists {
 
-				// Check duplicates
-				_, exists := serverinstance.pingpool[addr.String()]
-				senderhostname, errhostname := net.LookupHost(addr.IP.String())
-				if !exists {
-
-					if errhostname != nil {
-						// Store [address] = hostname
-						serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
-					} else {
-						fmt.Printf("Could not resolve hostname!\n")
-						serverinstance.pingpool[addr.String()] = ""
+						if errhostname != nil {
+							// Store [address] = hostname
+							serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+						} else {
+							fmt.Printf("Could not resolve hostname!\n")
+							serverinstance.pingpool[addr.String()] = ""
+						}
 					}
+
+					fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
 				}
 
-				fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
+				con.Close()
 			}
 
 			if !serverinstance.maintainsignal {
@@ -212,4 +209,22 @@ func ServerRun(alive bool) {
 			time.Sleep(time.Second * 1)
 		}
 	}()
+}
+
+func createudpcon(port int, ip string) *net.UDPConn {
+	addr := net.UDPAddr{
+		Port: port,
+		IP:   net.ParseIP(ip),
+	}
+
+	conCreate, err := net.DialUDP("udp", nil, &addr)
+	if err != nil {
+		fmt.Printf("%v", err)
+	} else {
+		con := conCreate
+		con.SetDeadline(time.Now().Add(5 * time.Second))
+		serverinstance.buffer = make([]byte, 1024)
+	}
+
+	return conCreate
 }
