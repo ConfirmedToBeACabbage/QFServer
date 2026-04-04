@@ -10,12 +10,12 @@ import (
 )
 
 type CMethodSig interface {
-	debugshow(bool)
-	help(bool)
-	inbox(bool)
-	draft(bool)
-	util(bool)
-	redirect(bool)
+	debugshow(chan bool)
+	help(chan bool)
+	inbox(chan bool)
+	draft(chan bool)
+	util(chan bool)
+	redirect(chan bool)
 }
 
 type Command struct {
@@ -27,16 +27,17 @@ type Command struct {
 	mu sync.Mutex
 }
 
-func (c *Command) debugshow(alive bool) {
+func (c *Command) debugshow(alive chan bool) {
+	<-alive
 
 	fmt.Printf("Switching the logging output")
 	log.GetInstance().DebuggingOutputOnOff()
 
-	alive = false
+	alive <- false
 }
 
 // Command methods signed by commandcontrol
-func (c *Command) help(alive bool) {
+func (c *Command) help(alive chan bool) {
 
 	fmt.Printf("\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
 		"\n***HELP***",
@@ -52,72 +53,85 @@ func (c *Command) help(alive bool) {
 		"DebugShow: Turn debugging logs on or off. By default they're on.",
 		"Quit: This will quit the program\n")
 
-	alive = false
+	alive <- false
 }
 
-func (c *Command) inbox(alive bool) {
-
+func (c *Command) inbox(alive chan bool) {
+	<-alive
 	logger := log.GetInstance()
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
 	// Or choose to receive them. We can also see the contents before we download
 	logger.Debug("COMMAND", "Inbox!")
 
-	alive = false
+	alive <- false
 }
 
-func (c *Command) draft(alive bool) {
-
+func (c *Command) draft(alive chan bool) {
+	<-alive
 	// This is where we would have a pool of known nodes on the network.
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Draft!")
 
-	alive = false
+	alive <- false
 }
 
-func (c *Command) util(alive bool) {
-
+func (c *Command) util(alive chan bool) {
+	<-alive
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Utility!")
 
-	alive = false
+	alive <- false
 }
 
 // SERVER ARGS
 
 // SERVER: Listener; This would start the broadcast listener
-func (c *Command) srvbroadcast(alive bool) {
-	// Wait for alive
+func (c *Command) srvbroadcast(alive chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	<-alive // Wait for alive
 
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Changing the server state for broadcasting!")
 	server.BroadcastStateChange()
 
-	alive = false
+	alive <- false
 }
 
 // SERVER: Open; This should open the server
-func (c *Command) srvopen(alive bool) {
+func (c *Command) srvopen(alive chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	// Wait for alive
+	<-alive // Wait for alive
 
 	logger := log.GetInstance()
 	logger.Debug("SERVER", "In the command method to begin server!")
 	server.ServerRun(alive)
 }
 
-func (c *Command) srvclose(alive bool) {
+func (c *Command) srvclose(alive chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	<-alive
 
 	logger := log.GetInstance()
 	logger.Output("SERVER", "Closing server")
 	server.ServerClose()
 
-	alive = false
+	alive <- false
 }
 
-func (c *Command) srvreq(alive bool) {
+func (c *Command) srvreq(alive chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	<-alive
 
 	logger := log.GetInstance()
 
@@ -125,7 +139,7 @@ func (c *Command) srvreq(alive bool) {
 	serverInstance := server.GetInstance() // Get the server instance object
 	if serverInstance == nil {
 		logger.Output("SERVER", "Server is not on!")
-		alive = false
+		alive <- false
 		return
 	} else {
 		serverInstance.REQmodule(alive) // This is the module where we are handling the stuff
@@ -133,9 +147,11 @@ func (c *Command) srvreq(alive bool) {
 }
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
-func (c *Command) srvpool(alive bool) {
+func (c *Command) srvpool(alive chan bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	// Wait for alive
+	<-alive // Wait for alive
 
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Showing the pool!")
@@ -146,29 +162,29 @@ func (c *Command) srvpool(alive bool) {
 		logger.Debug("OUTPUT", fmt.Sprintf("%d | %s", i, v))
 	}
 
-	alive = false
+	alive <- false
 }
 
 // Check if the server is alive
-func (c *Command) srvcheckalive(alive bool) {
+func (c *Command) srvcheckalive(alive chan bool) {
 
-	// Wait for alive
+	<-alive // Wait for alive
 
 	serveractive := server.CheckServerAlive()
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", fmt.Sprintf("SERVER ACTIVE STATUS: %v", serveractive))
 
-	alive = false
+	alive <- false
 }
 
 // Main redirect method
-func (c *Command) redirect(alive bool) (func(bool), func(bool)) {
+func (c *Command) redirect(alive chan bool) (func(chan bool), func(chan bool)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	logger := log.GetInstance()
 
-	cmapstart := map[string]func(bool){
+	cmapstart := map[string]func(chan bool){
 		"debugshow": c.debugshow,
 		"help":      c.help,
 		"inbox":     c.inbox,
@@ -176,7 +192,7 @@ func (c *Command) redirect(alive bool) (func(bool), func(bool)) {
 		"util":      c.util,
 	}
 
-	cmapserver := map[string]func(bool){
+	cmapserver := map[string]func(chan bool){
 		"broadcast": c.srvbroadcast, // Broadcast our client
 		"close":     c.srvclose,
 		"open":      c.srvopen,
@@ -185,7 +201,7 @@ func (c *Command) redirect(alive bool) (func(bool), func(bool)) {
 		"alive":     c.srvcheckalive,
 	}
 
-	cmaprouteutil := map[string]map[string]func(bool){
+	cmaprouteutil := map[string]map[string]func(chan bool){
 		"server": cmapserver,
 	}
 
@@ -193,9 +209,9 @@ func (c *Command) redirect(alive bool) (func(bool), func(bool)) {
 	methodcall := strings.TrimSpace(c.command)
 
 	// Setting up the return list
-	returnlist := make([]func(controller bool), 2)
-	returnlist[0] = func(alive bool) { logger.Debug("COMMAND", "\nEMPTY\n") }
-	returnlist[1] = func(alive bool) { logger.Debug("COMMAND", "\nEMPTY\n") }
+	returnlist := make([]func(controller chan bool), 2)
+	returnlist[0] = func(alive chan bool) { logger.Debug("COMMAND", "\nEMPTY\n") }
+	returnlist[1] = func(alive chan bool) { logger.Debug("COMMAND", "\nEMPTY\n") }
 
 	// TODO: this is just a tree traverse, I should automate this away. Commands might grow in length.
 	// AKA make a command tree
@@ -213,7 +229,7 @@ func (c *Command) redirect(alive bool) (func(bool), func(bool)) {
 			furthercommand, okcommand := route[furtherargcall]
 
 			if okcommand {
-				returnlist[1] = func(alive bool) { furthercommand(alive) }
+				returnlist[1] = func(alive chan bool) { furthercommand(alive) }
 			}
 		}
 	}
@@ -221,7 +237,7 @@ func (c *Command) redirect(alive bool) (func(bool), func(bool)) {
 	startmethod, okstart := cmapstart[methodcall]
 
 	if okstart {
-		returnlist[0] = func(alive bool) { startmethod(alive) }
+		returnlist[0] = func(alive chan bool) { startmethod(alive) }
 	}
 
 	logger.Debug("COMMAND", "Got all the commands and stuff!")

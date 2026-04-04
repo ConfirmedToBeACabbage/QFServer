@@ -7,7 +7,7 @@ import (
 	"github.com/QFServer/log"
 )
 
-func (si *ServerInstance) REQmodule(alive bool) {
+func (si *ServerInstance) REQmodule(alive chan bool) {
 
 	// Show the list of addresses in the request pool indexed with number starting at 1
 	// Beside it show the list of addresses which are requesting to you with different indexes
@@ -42,7 +42,7 @@ func (si *ServerInstance) REQmodule(alive bool) {
 
 		if input == "quit" {
 			logger.SwitchModule("DEFAULT")
-			alive = false
+			alive <- false
 			goodInput = true
 		}
 

@@ -34,7 +34,7 @@ type ServerInstance struct {
 	connection *conn
 
 	// Alive Channel
-	maintainsignal bool
+	maintainsignal chan bool
 }
 
 // Server Instance creator
@@ -53,12 +53,12 @@ func ServerClose() {
 	if serverinstance == nil {
 		logger.Output("ERROR", "Server instance doesn't exist nothing to close")
 	} else {
-		serverinstance.maintainsignal = false
+		serverinstance.maintainsignal <- false
 	}
 }
 
 // The server runner handling broadcast and normal connections
-func ServerRun(alive bool) {
+func ServerRun(alive chan bool) {
 
 	logger := log.GetInstance()
 
@@ -122,7 +122,7 @@ func ServerRun(alive bool) {
 	*/
 	if serverinstance == nil {
 		logger.Debug("DEBUG", "Failed to start server! Setting the maintain to be false")
-		alive = false
+		alive <- false
 		return
 	}
 
@@ -198,7 +198,7 @@ func ServerRun(alive bool) {
 				con.Close()
 			}
 
-			if !serverinstance.maintainsignal {
+			if !<-serverinstance.maintainsignal {
 
 				// Shutdown the server
 				if err := serverinstance.srv.Shutdown(ctx); err != nil {

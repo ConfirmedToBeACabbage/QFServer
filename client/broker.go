@@ -11,11 +11,11 @@ import (
 // Workers for listening to broadcasts
 // Learnings: Data races
 type wbroker struct {
-	cmethodsig      func(exit bool)     // The start method
-	cmethodmaintain func(maintain bool) // The maintain method
+	cmethodsig      func(exit chan bool)     // The start method
+	cmethodmaintain func(maintain chan bool) // The maintain method
 	name            string
 	status          string
-	alive           bool       // Channel to make sure it's alive
+	alive           chan bool  // Channel to make sure it's alive
 	start           bool       // Channel for starting
 	maintain        bool       // Channel for maintain
 	exit            bool       // Channel for exiting
@@ -50,7 +50,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 	logger.Store("BROKER", "Configuring a new worker for command:"+c.command)
 	newworker := &wbroker{}
 	logger.Store("BROKER", "New Worker has been instantiated")
-	newworker.alive = true
+	newworker.alive = make(chan bool)
 	newworker.exit = false
 	newworker.start = true
 	newworker.maintain = true
@@ -94,6 +94,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 		w.error = false
 		logger.Store("BROKER", "All done! Error "+fmt.Sprint(w.error))
 		newworker.setStatus("[STATUS] Ready to init!")
+		//newworker.alive <- true
 
 		// Learning: This below would cause a freeze if unbuffered channel
 		// Channels in go require there to be a sender and receiver. So because there is no receiver,
@@ -116,26 +117,24 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 // Return latest boolean from a boolean channel
 // Must be buffered!
 // Learning: Channels are queues. When you drain from a channel it becomes empty! AKa return false!
-func (w *wbroker) controlworkerstate(wCont *wbrokercontroller) { // THIS CHECKS IF THE CHANNEL SHOULD BE ALIVE
+func (w *wbroker) controlworkerstate() { // THIS CHECKS IF THE CHANNEL SHOULD BE ALIVE
 	logger := log.GetInstance()
 
-	for {
-		time.Sleep(time.Millisecond * 500)
-		if !w.alive {
+	waitState := <-w.alive
+	if !waitState {
 
-			w.mu.Lock()
-			w.setStatus("STATUS: Exiting the worker " + w.name)
-			logger.Debug("BROKER", w.status)
-			// Closing the channels used in the worker
-			w.alive = false
-			w.start = false
-			w.maintain = false
-			w.cmethodsig = nil
-			w.cmethodmaintain = nil
-			w.mu.Unlock()
+		w.mu.Lock()
+		//w.setStatus("STATUS: Exiting the worker " + w.name) LEARNING: THIS IS A DEADLOCK BECAUSE OF MUTEX
+		logger.Debug("BROKER", w.status)
+		// Closing the channels used in the worker
+		close(w.alive)
+		w.start = false
+		w.maintain = false
+		w.cmethodsig = nil
+		w.cmethodmaintain = nil
+		w.exit = true
+		w.mu.Unlock()
 
-			return
-		}
 	}
 }
 
@@ -151,7 +150,7 @@ func (w *wbrokercontroller) maintain() {
 
 				worker := w.wbrokerlist[i]
 
-				if worker.start == false && worker.maintain == false {
+				if worker.exit == true {
 					logger.Debug("BROKER", fmt.Sprintf("Ending worker: %s", worker.name))
 					delete(w.wbrokerlist, worker.name) // Deleting from the list
 				}
@@ -166,6 +165,7 @@ func (w *wbrokercontroller) maintain() {
 				if worker.start {
 					worker.setStatus("STATUS: Running a start method for " + worker.name)
 					logger.Debug("BROKER", worker.status)
+					go worker.controlworkerstate()
 					go worker.cmethodsig(worker.alive)
 					worker.start = false // To make sure we don't restart it
 				}
@@ -174,8 +174,6 @@ func (w *wbrokercontroller) maintain() {
 					worker.setStatus("STATUS: Running a maintain method for " + worker.name)
 					logger.Debug("BROKER", worker.status)
 					go worker.cmethodmaintain(worker.alive)
-					worker.alive = true
-					go worker.controlworkerstate(w)
 					worker.maintain = false
 				}
 
