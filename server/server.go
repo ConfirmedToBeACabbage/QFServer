@@ -142,6 +142,39 @@ func ServerRun(alive bool) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel() // Learning: Cancels the resources associated with the things we're canceling
 
+		go func() {
+			con := createudpcon(8080, "0.0.0.0", true)
+			defer con.Close()
+			for {
+				if con == nil {
+					logger.Debug("SERVER | ERROR", "Connection could not be created!")
+					break
+				}
+
+				n, addr, err := con.ReadFromUDP(serverinstance.buffer)
+				if err != nil {
+					fmt.Println("ERROR: Could not read from UDP: " + err.Error())
+					break
+				} else {
+					// Check duplicates
+					_, exists := serverinstance.pingpool[addr.String()]
+					senderhostname, errhostname := net.LookupHost(addr.IP.String())
+					if !exists {
+
+						if errhostname != nil {
+							// Store [address] = hostname
+							serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+						} else {
+							fmt.Printf("Could not resolve hostname!\n")
+							serverinstance.pingpool[addr.String()] = ""
+						}
+					}
+
+					fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
+				}
+			}
+		}()
+
 		for {
 
 			// BROADCASTING AND LISTENING LOGIC
@@ -163,41 +196,6 @@ func ServerRun(alive bool) {
 				fmt.Println("BROADCAST: Sending a broadcast")
 
 				con.Close()
-
-				go func() {
-					con = createudpcon(8080, "0.0.0.0", true)
-					defer con.Close()
-					for {
-						if con == nil {
-							logger.Debug("SERVER | ERROR", "Connection could not be created!")
-						} else {
-							break
-						}
-
-						n, addr, err := con.ReadFromUDP(serverinstance.buffer)
-						if err != nil {
-							fmt.Println("ERROR: Could not read from UDP: " + err.Error())
-							break
-						} else {
-							// Check duplicates
-							_, exists := serverinstance.pingpool[addr.String()]
-							senderhostname, errhostname := net.LookupHost(addr.IP.String())
-							if !exists {
-
-								if errhostname != nil {
-									// Store [address] = hostname
-									serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
-								} else {
-									fmt.Printf("Could not resolve hostname!\n")
-									serverinstance.pingpool[addr.String()] = ""
-								}
-							}
-
-							fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
-						}
-					}
-				}()
-
 			}
 
 			if !serverinstance.maintainsignal {
