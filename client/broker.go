@@ -100,6 +100,7 @@ func (w *wbrokercontroller) configureworker(c *Command) bool {
 		// Channels in go require there to be a sender and receiver. So because there is no receiver,
 		// it will be an unbuffered channel.
 		// What we can do is buffer it above by doing make(chan bool, 1)
+		// LEARNING UPDATE: I can have it unbuffered, it's actually easier that way. Just order your receivers etc appropriately in order
 
 		w.wbrokerlist[newworker.name] = newworker
 	}

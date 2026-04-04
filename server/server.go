@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/QFServer/log"
@@ -22,6 +21,8 @@ type ServerInstance struct {
 	reqopen  bool
 	handlers map[string]func(w http.ResponseWriter, r *http.Request)
 	srv      *http.Server
+
+	handlerInterface *http.ServeMux
 
 	// This is the UDP section
 	broadcasting bool
@@ -40,7 +41,6 @@ type ServerInstance struct {
 // Server Instance creator
 var (
 	serverinstance *ServerInstance
-	once           sync.Once
 )
 
 func GetInstance() *ServerInstance {
@@ -62,55 +62,51 @@ func ServerRun(alive chan bool) {
 
 	logger := log.GetInstance()
 
-	if serverinstance != nil {
-		logger.Output("SERVER", "There already exists an instance!")
-		return
+	// LEARNING: THIS INITIALIZES AND SETS, WE DONT NEED A LOCAL VARIABLE WE JUST NEED TO UPDATE THE GLOBAL VARIABLE
+	tempHandle := http.NewServeMux()
+	serverinstance = &ServerInstance{
+		pingpool: make(map[string]string),
+		reqpool:  make(map[int]string),
+		pingopen: false,
+		reqopen:  false,
+		handlers: map[string]func(w http.ResponseWriter, r *http.Request){
+			"/":    serverinstance.handleping, // Handle pings
+			"/req": serverinstance.handlereq,  // Handle pools
+		},
+		// Learning: I need to assign the handler here, otherwise we will get a panic when http tries to handle the requests
+		handlerInterface: tempHandle,
+		srv: &http.Server{
+			Addr: ":8080", // Set the address and port
+			// ANOTHER LEARNING: Handler is just the interface, but ServeMux actually implements it. That's why you should assign newservemux seperately and then get
+			// handlers on it.
+			Handler: tempHandle, // Use a new ServeMux LEARNING, this is important to the shutdowns and everything
+		},
+		broadcasting:   false,
+		buffer:         make([]byte, 1024),
+		maintainsignal: alive,
 	}
 
-	once.Do(func() {
+	hostget, errhost := os.Hostname()
+	if errhost != nil {
+		serverinstance.clienthostname = hostget
+	} else {
+		logger.Debug("DEBUG", "Error in getting hostname!")
+	}
 
-		// LEARNING: THIS INITIALIZES AND SETS, WE DONT NEED A LOCAL VARIABLE WE JUST NEED TO UPDATE THE GLOBAL VARIABLE
-		serverinstance = &ServerInstance{
-			pingpool: make(map[string]string),
-			reqpool:  make(map[int]string),
-			pingopen: false,
-			reqopen:  false,
-			handlers: map[string]func(w http.ResponseWriter, r *http.Request){
-				"/":    serverinstance.handleping, // Handle pings
-				"/req": serverinstance.handlereq,  // Handle pools
-			},
-			// Learning: I need to assign the handler here, otherwise we will get a panic when http tries to handle the requests
-			srv: &http.Server{
-				Addr:    ":8080",              // Set the address and port
-				Handler: http.DefaultServeMux, // Use the default ServeMux
-			},
-			broadcasting:   false,
-			buffer:         make([]byte, 1024),
-			maintainsignal: alive,
-		}
+	// Setup the handlers
+	// Learnings: The handlers here are specifically talking bout the app.routes() handler. It's sort of middle-ware.
+	// The http.HandleFunc simple adds to the routes. The server would speak to that then. That's why it's not in the same struct
+	// Listen and server is a blocking thing too. Since it runs in the sync.once it will block the initialization process indefinitely preventing
+	// The rest of the program from running. Well technically it's just blocking the goroutine but still the same issue.
+	for i, v := range serverinstance.handlers {
+		serverinstance.handlerInterface.HandleFunc(i, v)
+	}
 
-		hostget, errhost := os.Hostname()
-		if errhost != nil {
-			serverinstance.clienthostname = hostget
-		} else {
-			logger.Debug("DEBUG", "Error in getting hostname!")
-		}
+	logger.Debug("DEBUG", "Setup the handlers!")
 
-		// Setup the handlers
-		// Learnings: The handlers here are specifically talking bout the app.routes() handler. It's sort of middle-ware.
-		// The http.HandleFunc simple adds to the routes. The server would speak to that then. That's why it's not in the same struct
-		// Listen and server is a blocking thing too. Since it runs in the sync.once it will block the initialization process indefinitely preventing
-		// The rest of the program from running. Well technically it's just blocking the goroutine but still the same issue.
-		for i, v := range serverinstance.handlers {
-			http.HandleFunc(i, v)
-		}
-
-		logger.Debug("DEBUG", "Setup the handlers!")
-
-		// Setup server configuration
-		serverinstance.srv.IdleTimeout = time.Millisecond * 5
-		serverinstance.srv.MaxHeaderBytes = 1024
-	})
+	// Setup server configuration
+	serverinstance.srv.IdleTimeout = time.Millisecond * 5
+	serverinstance.srv.MaxHeaderBytes = 1024
 
 	logger.Output("SERVER", "Starting server!")
 
@@ -138,17 +134,53 @@ func ServerRun(alive chan bool) {
 
 	// Server running loop
 	go func() {
-		// Context
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel() // Learning: Cancels the resources associated with the things we're canceling
+
+		con := createudpcon(8080, "0.0.0.0", true)
+		if con == nil { // TODO: Add handler for this
+			logger.Debug("SERVER | ERROR", "Connection could not be created!")
+		}
+		defer con.Close()
 
 		go func() {
-			con := createudpcon(8080, "0.0.0.0", true)
-			defer con.Close()
-			for {
-				if con == nil {
-					logger.Debug("SERVER | ERROR", "Connection could not be created!")
-					break
+
+			waitState := <-serverinstance.maintainsignal
+			if !waitState {
+
+				// Shutdown the server
+				if err := serverinstance.srv.Shutdown(context.Background()); err != nil { //CTX in this case is not a copy
+					logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
+				}
+
+				logger.Debug("DEBUG", "Server has been stopped")
+
+				serverinstance = nil
+				//delete(http.DefaultServeMux.Handle(), "/") Interesting implementation in this method though
+			}
+
+		}()
+
+		for {
+
+			if serverinstance != nil {
+				// BROADCASTING AND LISTENING LOGIC
+				if serverinstance.broadcasting {
+					con := createudpcon(8080, "255.255.255.255", false)
+
+					if con == nil {
+						logger.Debug("SERVER | ERROR", "Connection could not be created!")
+					}
+
+					message := []byte("[QFSERVER]ALIVEPING")
+					_, err := con.Write(message)
+
+					if err != nil {
+						fmt.Printf("Error: %v", err)
+					}
+
+					time.Sleep(time.Second * 2)
+					fmt.Println("BROADCAST: Sending a broadcast")
+
+					con.Close()
 				}
 
 				n, addr, err := con.ReadFromUDP(serverinstance.buffer)
@@ -172,42 +204,9 @@ func ServerRun(alive chan bool) {
 
 					fmt.Printf("Received response from %s: %s\n", addr.String(), string(serverinstance.buffer[:n]))
 				}
-			}
-		}()
 
-		for {
-
-			// BROADCASTING AND LISTENING LOGIC
-			if serverinstance.broadcasting {
-				con := createudpcon(8080, "255.255.255.255", false)
-
-				if con == nil {
-					logger.Debug("SERVER | ERROR", "Connection could not be created!")
-				}
-
-				message := []byte("[QFSERVER]ALIVEPING")
-				_, err := con.Write(message)
-
-				if err != nil {
-					fmt.Printf("Error: %v", err)
-				}
-
-				time.Sleep(time.Second * 2)
-				fmt.Println("BROADCAST: Sending a broadcast")
-
-				con.Close()
-			}
-
-			if !<-serverinstance.maintainsignal {
-
-				// Shutdown the server
-				if err := serverinstance.srv.Shutdown(ctx); err != nil {
-					logger.Debug("DEBUG", fmt.Sprintf("Server Shutdown Failed:%+v", err))
-				}
-
-				logger.Debug("DEBUG", "Server has been stopped")
-
-				return
+			} else {
+				break
 			}
 
 			time.Sleep(time.Second * 1)

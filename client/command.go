@@ -28,8 +28,6 @@ type Command struct {
 }
 
 func (c *Command) debugshow(alive chan bool) {
-	<-alive
-
 	fmt.Printf("Switching the logging output")
 	log.GetInstance().DebuggingOutputOnOff()
 
@@ -57,7 +55,6 @@ func (c *Command) help(alive chan bool) {
 }
 
 func (c *Command) inbox(alive chan bool) {
-	<-alive
 	logger := log.GetInstance()
 	// We would have to just check for connections pooled?
 	// Then when the connections are pooled we can either open them with a token
@@ -68,7 +65,6 @@ func (c *Command) inbox(alive chan bool) {
 }
 
 func (c *Command) draft(alive chan bool) {
-	<-alive
 	// This is where we would have a pool of known nodes on the network.
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Draft!")
@@ -77,24 +73,16 @@ func (c *Command) draft(alive chan bool) {
 }
 
 func (c *Command) util(alive chan bool) {
-	<-alive
 	// Util should have a couple functions; We're starting with scanning and locating
 	// possible receivers
 	logger := log.GetInstance()
-	logger.Debug("COMMAND", "Utility!")
-
-	alive <- false
+	logger.Debug("COMMAND", "This is a utility command!")
 }
 
 // SERVER ARGS
 
 // SERVER: Listener; This would start the broadcast listener
 func (c *Command) srvbroadcast(alive chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	<-alive // Wait for alive
-
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Changing the server state for broadcasting!")
 	server.BroadcastStateChange()
@@ -104,22 +92,12 @@ func (c *Command) srvbroadcast(alive chan bool) {
 
 // SERVER: Open; This should open the server
 func (c *Command) srvopen(alive chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	<-alive // Wait for alive
-
 	logger := log.GetInstance()
 	logger.Debug("SERVER", "In the command method to begin server!")
 	server.ServerRun(alive)
 }
 
 func (c *Command) srvclose(alive chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	<-alive
-
 	logger := log.GetInstance()
 	logger.Output("SERVER", "Closing server")
 	server.ServerClose()
@@ -128,11 +106,6 @@ func (c *Command) srvclose(alive chan bool) {
 }
 
 func (c *Command) srvreq(alive chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	<-alive
-
 	logger := log.GetInstance()
 
 	// Option to just look at the pool of requests or make an outgoing request
@@ -148,11 +121,6 @@ func (c *Command) srvreq(alive chan bool) {
 
 // SERVER: pool; This should show us the pool of users which we have on lan that we can send to
 func (c *Command) srvpool(alive chan bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	<-alive // Wait for alive
-
 	logger := log.GetInstance()
 	logger.Debug("COMMAND", "Showing the pool!")
 	poollist := server.GetInstance().GetPingPool()
@@ -167,8 +135,6 @@ func (c *Command) srvpool(alive chan bool) {
 
 // Check if the server is alive
 func (c *Command) srvcheckalive(alive chan bool) {
-
-	<-alive // Wait for alive
 
 	serveractive := server.CheckServerAlive()
 	logger := log.GetInstance()
