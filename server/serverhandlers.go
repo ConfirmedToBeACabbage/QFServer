@@ -3,7 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"os"
+	"strings"
 )
 
 // Functions to pool everything
@@ -14,7 +14,7 @@ func (si *ServerInstance) handlereq(w http.ResponseWriter, r *http.Request) {
 // Ping response and receive
 func (si *ServerInstance) handleping(w http.ResponseWriter, r *http.Request) {
 	// Store ping in the pool
-	address := r.RemoteAddr
+	address := strings.Split(r.RemoteAddr, ":")[0]
 	hostname := r.Host
 
 	// Check duplicates
@@ -22,11 +22,5 @@ func (si *ServerInstance) handleping(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		// Store [address] = hostname
 		si.pingpool[address] = hostname
-	}
-
-	// Write a response
-	currhostname, err := os.Hostname()
-	if err != nil {
-		fmt.Fprintf(w, "[QFServer]\nHostname: %s\n", currhostname)
 	}
 }

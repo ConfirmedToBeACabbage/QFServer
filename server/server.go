@@ -170,16 +170,16 @@ func createudplistener() {
 			fmt.Println("ERROR: Could not read from UDP: " + err.Error())
 		} else {
 			// Check duplicates
-			_, exists := serverinstance.pingpool[addr.String()]
+			_, exists := serverinstance.pingpool[strings.Split(addr.String(), ":")[0]]
 			senderhostname, errhostname := net.LookupHost(addr.IP.String())
 			if !exists {
 
 				if errhostname != nil {
 					// Store [address] = hostname
-					serverinstance.pingpool[addr.String()] = strings.Join(senderhostname, " ")
+					serverinstance.pingpool[strings.Split(addr.String(), ":")[0]] = strings.Join(senderhostname, " ")
 				} else {
 					fmt.Printf("Could not resolve hostname!\n")
-					serverinstance.pingpool[addr.String()] = ""
+					serverinstance.pingpool[strings.Split(addr.String(), ":")[0]] = ""
 				}
 			}
 
