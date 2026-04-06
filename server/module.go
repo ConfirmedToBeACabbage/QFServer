@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/QFServer/log"
@@ -43,6 +44,10 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 			logger.SwitchModule("DEFAULT")
 			alive <- false
 			goodInput = true
+		}
+
+		if input == "1" { // TODO: THis is hardcoded for now
+			http.Get()
 		}
 
 		time.Sleep(time.Second * 1)
