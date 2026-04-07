@@ -19,7 +19,6 @@ type ServerInstance struct {
 	reqpool  map[string]string
 	pingopen bool
 	reqopen  bool
-	handlers map[string]func(w http.ResponseWriter, r *http.Request)
 	srv      *http.Server
 
 	handlerInterface *http.ServeMux
@@ -69,10 +68,6 @@ func ServerRun(alive chan bool) {
 		reqpool:  make(map[string]string),
 		pingopen: false,
 		reqopen:  false,
-		handlers: map[string]func(w http.ResponseWriter, r *http.Request){
-			"/":    serverinstance.handleping, // Handle pings
-			"/req": serverinstance.handlereq,  // Handle pools
-		},
 		// Learning: I need to assign the handler here, otherwise we will get a panic when http tries to handle the requests
 		handlerInterface: tempHandle,
 		srv: &http.Server{
@@ -98,9 +93,8 @@ func ServerRun(alive chan bool) {
 	// The http.HandleFunc simple adds to the routes. The server would speak to that then. That's why it's not in the same struct
 	// Listen and server is a blocking thing too. Since it runs in the sync.once it will block the initialization process indefinitely preventing
 	// The rest of the program from running. Well technically it's just blocking the goroutine but still the same issue.
-	for i, v := range serverinstance.handlers {
-		serverinstance.handlerInterface.HandleFunc(i, v)
-	}
+	serverinstance.handlerInterface.HandleFunc("/", serverinstance.handleping)
+	serverinstance.handlerInterface.HandleFunc("/req", serverinstance.handlereq)
 
 	logger.Debug("DEBUG", "Setup the handlers!")
 
