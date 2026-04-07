@@ -92,7 +92,7 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 
 				// Building the reader for the connection | We're sending only vital information to establish a secure connection
 				r := strings.NewReader(
-					fmt.Sprintf("%s || %s || %s",
+					fmt.Sprintf("%s||%s||%s",
 						connObject.endpointCON,
 						connObject.masterPublic.N.String(),
 						strconv.Itoa(connObject.masterPublic.E)))

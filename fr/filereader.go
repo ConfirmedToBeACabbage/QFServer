@@ -32,8 +32,6 @@ func ReadFromFile(filePath string) []byte {
 	} else {
 		fileReadObj.inputFile = file
 
-		fileReadObj.inputBuffer = make([]byte, 1000)
-
 		var countKB int = 0
 		var number int64 = 0
 		EOF := false
@@ -44,10 +42,10 @@ func ReadFromFile(filePath string) []byte {
 
 			if err != nil {
 				EOF = true
-			} else {
-				fileReadObj.inputCache[number] = fileReadObj.inputBuffer
-				number = int64(readInt)
 			}
+
+			fileReadObj.inputCache[number] = fileReadObj.inputBuffer
+			number = int64(readInt)
 		}
 
 		out := make([]byte, 0, countKB+1)

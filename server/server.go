@@ -81,6 +81,8 @@ func ServerRun(alive chan bool) {
 		broadcasting:   false,
 		buffer:         make([]byte, 1024),
 		maintainsignal: alive,
+		connection:     make(map[string]*conn),
+		conKeyPriv:     make(map[*conn]*rsa.PrivateKey),
 	}
 
 	hostget, errhost := os.Hostname()
