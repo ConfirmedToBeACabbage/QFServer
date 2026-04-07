@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 type ServerInstance struct {
 	// TLS section
 	pingpool map[string]string
-	reqpool  map[string]string
+	reqpool  map[string]conn
 	pingopen bool
 	reqopen  bool
 	srv      *http.Server
@@ -31,7 +32,8 @@ type ServerInstance struct {
 	clienthostname string
 
 	// A connection that the user may have to a node
-	connection *conn
+	connection map[string]*conn
+	conKeyPriv map[*conn]*rsa.PrivateKey
 
 	// Alive Channel
 	maintainsignal chan bool
@@ -65,7 +67,7 @@ func ServerRun(alive chan bool) {
 	tempHandle := http.NewServeMux()
 	serverinstance = &ServerInstance{
 		pingpool: make(map[string]string),
-		reqpool:  make(map[string]string),
+		reqpool:  make(map[string]conn),
 		pingopen: false,
 		reqopen:  false,
 		// Learning: I need to assign the handler here, otherwise we will get a panic when http tries to handle the requests

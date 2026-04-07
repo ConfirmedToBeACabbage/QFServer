@@ -1,24 +1,63 @@
 package server
 
 import (
+	"bytes"
+	"crypto/rsa"
 	"fmt"
+	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 // Functions to pool everything
 func (si *ServerInstance) handlereq(w http.ResponseWriter, r *http.Request) {
 	address := strings.Split(r.RemoteAddr, ":")[0]
-	hostname := r.Host
 
 	// Check duplicates
 	_, exists := si.reqpool[address]
 	if !exists {
-		// Store [address] = hostname
-		si.reqpool[address] = hostname
-	}
+		newConn := new(conn)
+		requestBody := r.Body
 
-	fmt.Println("GOT IT!")
+		buf := new(bytes.Buffer)
+		_, err := buf.ReadFrom(requestBody)
+
+		// Interpret the request data
+		if err == nil {
+			content := strings.Split(buf.String(), "||")
+
+			// Get the bigint conversion
+			bigIntN := new(big.Int)
+			bigIntN, ok := bigIntN.SetString(content[1], 10)
+
+			if !ok { // TODO: CHANGE TO BETTER ERROR
+				fmt.Println("ERROR")
+			}
+
+			// Get the E conversion
+			eInt, err := strconv.Atoi(content[2])
+
+			if err != nil { // TODO: CHANGE TO BETTER ERROR
+				fmt.Println("ERROR")
+			}
+
+			// Setup the public key object
+			pubKey := new(rsa.PublicKey)
+			pubKey.N = bigIntN
+			pubKey.E = eInt
+
+			// Setup the connection object
+			newConn.endpointCON = content[0]
+			newConn.sourceCON = address
+			newConn.masterPublic = *pubKey
+
+			// Store the request
+			si.reqpool[address] = *newConn
+
+			fmt.Println("Secured the connection object")
+		}
+	}
 }
 
 // Ping response and receive

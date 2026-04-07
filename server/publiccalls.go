@@ -7,9 +7,9 @@ import (
 )
 
 // Request pool
-func (si *ServerInstance) GetRequestPool() map[string]string {
+func (si *ServerInstance) GetRequestPool() map[string]conn {
 	if !CheckServerAlive() {
-		return map[string]string{"ERROR": "ERROR: Cannot change broadcast since the server isn't alive!"}
+		return map[string]conn{"ERROR": {}}
 	}
 	return si.reqpool
 }

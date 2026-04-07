@@ -1,10 +1,17 @@
 package server
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
+	FR "github.com/QFServer/fr"
 	"github.com/QFServer/log"
 )
 
@@ -31,6 +38,7 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 	counter := 0
 	logger.Output("SERVERREQ", "Current Pool")
 	pingablePool := make(map[int]string)
+	requestablePool := make(map[int]string)
 	for i := range pingPool {
 
 		logger.Output("NODE", fmt.Sprintf("%d | %s", counter+1, i))
@@ -39,9 +47,11 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 		counter += 1
 	}
 
+	counter = 0
 	for i := range reqPool {
 
 		logger.Output("REQ", fmt.Sprintf("C%d | %s", counter+1, i))
+		requestablePool[counter] = i
 
 		counter += 1
 	}
@@ -61,9 +71,46 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 			if exist == false {
 				logger.Debug("ERROR", "That entry doesnt exist!")
 			} else {
-				http.Get("http://" + nodeToPing + ":8080" + "/req")
+				// Prepare the file that we want to send over
+				getFile := FR.ReadFromFile(filepath.Join(os.TempDir(), "example"))
+
+				// Generate a private key
+				masterPriv, _ := rsa.GenerateKey(rand.Reader, 2048)
+
+				// We store this information inside a connection for this node that we're requesting to
+				connObject := &conn{
+					endpointCON:  nodeToPing,
+					data:         getFile,
+					masterPublic: masterPriv.PublicKey,
+				}
+
+				si.connection[nodeToPing] = connObject
+
+				// TODO: This should be in a key manager internally
+				// Storing the private key (Since we're the requesting node we're the "master" or "server")
+				si.conKeyPriv[si.connection[nodeToPing]] = masterPriv
+
+				// Building the reader for the connection | We're sending only vital information to establish a secure connection
+				r := strings.NewReader(
+					fmt.Sprintf("%s || %s || %s",
+						connObject.endpointCON,
+						connObject.masterPublic.N.String(),
+						strconv.Itoa(connObject.masterPublic.E)))
+
+				// Send over the connection object
+				http.Post("http://"+nodeToPing+":8080"+"/req", "text/plain", r)
 			}
 		}
+
+		// if input == "C1" {
+		// 	nodeToPing, exist := requestablePool[0]
+
+		// 	if exist == false {
+		// 		logger.Debug("ERROR", "That entry doesn't exist!")
+		// 	} else {
+		// 		// This means that we
+		// 	}
+		// }
 
 		time.Sleep(time.Second * 1)
 	}

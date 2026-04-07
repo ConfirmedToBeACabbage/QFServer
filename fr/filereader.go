@@ -21,7 +21,7 @@ type filereader struct {
 	inputCache  [][]byte
 }
 
-func ReadFromFile(filePath string) [][]byte {
+func ReadFromFile(filePath string) []byte {
 
 	fileReadObj := &filereader{}
 
@@ -50,7 +50,14 @@ func ReadFromFile(filePath string) [][]byte {
 			}
 		}
 
+		out := make([]byte, 0, countKB+1)
+		for _, p := range fileReadObj.inputCache {
+			out = append(out, p...)
+		}
+
+		return out
+
 	}
 
-	return fileReadObj.inputCache
+	return nil
 }
