@@ -31,6 +31,7 @@ func ReadFromFile(filePath string) []byte {
 		fmt.Printf("File can't be opened")
 	} else {
 		fileReadObj.inputFile = file
+		fileReadObj.inputCache = make([][]byte, 0)
 
 		var countKB int = 0
 		var number int64 = 0
@@ -44,7 +45,7 @@ func ReadFromFile(filePath string) []byte {
 				EOF = true
 			}
 
-			fileReadObj.inputCache[number] = fileReadObj.inputBuffer
+			fileReadObj.inputCache = append(fileReadObj.inputCache, fileReadObj.inputBuffer)
 			number = int64(readInt)
 		}
 
