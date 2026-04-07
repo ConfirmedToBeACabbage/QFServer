@@ -30,9 +30,18 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 
 	counter := 0
 	logger.Output("SERVERREQ", "Current Pool")
+	pingablePool := make(map[int]string)
 	for i := range pingPool {
 
-		logger.Output("DATA", fmt.Sprintf("%d | %s --- %s%d | %s", counter+1, i, "C", counter+1, reqPool[counter]))
+		logger.Output("NODE", fmt.Sprintf("%d | %s", counter+1, i))
+		pingablePool[counter] = i
+
+		counter += 1
+	}
+
+	for i := range reqPool {
+
+		logger.Output("REQ", fmt.Sprintf("C%d | %s", counter+1, i))
 
 		counter += 1
 	}
@@ -47,7 +56,13 @@ func (si *ServerInstance) REQmodule(alive chan bool) {
 		}
 
 		if input == "1" { // TODO: THis is hardcoded for now
-			http.Get()
+			nodeToPing, exist := pingablePool[0]
+
+			if exist == false {
+				logger.Debug("ERROR", "That entry doesnt exist!")
+			} else {
+				http.Get("http://" + nodeToPing + ":8080" + "/req")
+			}
 		}
 
 		time.Sleep(time.Second * 1)

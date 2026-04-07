@@ -16,7 +16,7 @@ import (
 type ServerInstance struct {
 	// TLS section
 	pingpool map[string]string
-	reqpool  map[int]string
+	reqpool  map[string]string
 	pingopen bool
 	reqopen  bool
 	handlers map[string]func(w http.ResponseWriter, r *http.Request)
@@ -66,7 +66,7 @@ func ServerRun(alive chan bool) {
 	tempHandle := http.NewServeMux()
 	serverinstance = &ServerInstance{
 		pingpool: make(map[string]string),
-		reqpool:  make(map[int]string),
+		reqpool:  make(map[string]string),
 		pingopen: false,
 		reqopen:  false,
 		handlers: map[string]func(w http.ResponseWriter, r *http.Request){
@@ -161,6 +161,7 @@ func createudplistener() {
 	con := createudpcon(8080, "0.0.0.0", true)
 	if con == nil { // TODO: Add handler for this
 		logger.Debug("SERVER | ERROR", "Connection could not be created!")
+		return
 	}
 	defer con.Close()
 

@@ -8,7 +8,17 @@ import (
 
 // Functions to pool everything
 func (si *ServerInstance) handlereq(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello!")
+	address := strings.Split(r.RemoteAddr, ":")[0]
+	hostname := r.Host
+
+	// Check duplicates
+	_, exists := si.reqpool[address]
+	if !exists {
+		// Store [address] = hostname
+		si.reqpool[address] = hostname
+	}
+
+	fmt.Println("GOT IT!")
 }
 
 // Ping response and receive
