@@ -31,6 +31,10 @@ func ReadFromFile(filePath string) []byte {
 		fmt.Printf("File can't be opened")
 	} else {
 		fileReadObj.inputFile = file
+
+		// TODO: Since this is a multidim array I can easily get the approximate size of the file. We would have to
+		// take length ratios (think percent full) of every byte array. You can work your way downwards. So if we need that
+		// information we can easily do that.
 		fileReadObj.inputCache = make([][]byte, 0)
 
 		var countKB int = 0
