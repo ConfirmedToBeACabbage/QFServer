@@ -99,6 +99,7 @@ func ServerRun(alive chan bool) {
 	// The rest of the program from running. Well technically it's just blocking the goroutine but still the same issue.
 	serverinstance.handlerInterface.HandleFunc("/", serverinstance.handleping)
 	serverinstance.handlerInterface.HandleFunc("/req", serverinstance.handlereq)
+	serverinstance.handlerInterface.HandleFunc("/conn", serverinstance.handleconn) // THis should be a mutext protected handler
 
 	logger.Debug("DEBUG", "Setup the handlers!")
 

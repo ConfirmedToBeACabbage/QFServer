@@ -2,13 +2,34 @@ package server
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"fmt"
 	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 )
+
+func (si *ServerInstance) handleconn(w http.ResponseWriter, r *http.Request) {
+	// Get the string which correlates to this item you want to handle in this
+	specHandle, ok := si.reqpool[strings.Split(r.RemoteAddr, ":")[0]]
+
+	if ok {
+
+		// Get a key I can use for this connection
+		token := make([]byte, 4)
+		rand.Read(token)
+
+		encryptedMessage, error := rsa.EncryptOAEP(sha256.New(), rand.Reader, &specHandle.masterPublic, specHandle.data, token)
+		if error == nil {
+			w.Write(encryptedMessage)
+		}
+
+	}
+
+}
 
 // Functions to pool everything
 func (si *ServerInstance) handlereq(w http.ResponseWriter, r *http.Request) {
